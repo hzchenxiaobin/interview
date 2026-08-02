@@ -15,7 +15,7 @@ import {
 import { db } from "../db/client.js";
 import { interviewMessages, interviewSessions, questions } from "../db/schema.js";
 import { authedProcedure, router } from "../trpc.js";
-import { getInterviewer } from "../interviewer/factory.js";
+import { getInterviewer, isLlmEnabled } from "../interviewer/factory.js";
 
 type SessionRow = typeof interviewSessions.$inferSelect;
 type MessageRow = typeof interviewMessages.$inferSelect;
@@ -142,9 +142,10 @@ export const interviewRouter = router({
 
     const questionIds = picked.map((q) => q.id);
     const first = toQuestion(picked[0]);
+    const firstQuestion = await getInterviewer().openingQuestion(first, "AI Infra 工程师");
     const opening =
       `你好，我是今天的面试官。本场面试共 ${picked.length} 道题（${catLabels}方向），我会一次问一个问题，可能会有一些追问。\n\n` +
-      `我们开始第一题：\n\n**${first.title}**\n\n${first.content}`;
+      `我们开始第一题：\n\n${firstQuestion}`;
 
     const sessionId = await db.transaction(async (tx) => {
       const inserted = await tx
@@ -199,7 +200,8 @@ export const interviewRouter = router({
         content: input.content,
       });
 
-      const maxFollowUps = Math.min(current.followUps.length, MAX_FOLLOW_UPS);
+      // LLM 模式可动态生成追问，上限 MAX_FOLLOW_UPS；规则引擎只按预设追问数量追问
+      const maxFollowUps = isLlmEnabled() ? MAX_FOLLOW_UPS : Math.min(current.followUps.length, MAX_FOLLOW_UPS);
       let newIndex = session.currentIndex;
       let newFollowUpIndex = session.followUpIndex;
       let finished = false;
@@ -229,7 +231,7 @@ export const interviewRouter = router({
         if (!next) {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "下一题已被删除，无法继续" });
         }
-        interviewerContent = `好的，进入第 ${newIndex + 1} 题：\n\n**${next.title}**\n\n${next.content}`;
+        interviewerContent = `好的，进入第 ${newIndex + 1} 题：\n\n${await getInterviewer().openingQuestion(next, "AI Infra 工程师")}`;
         interviewerQuestionId = next.id;
       } else {
         // 题目耗尽，结束

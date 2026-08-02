@@ -4,6 +4,7 @@ import type {
   GroupedTranscript,
   IInterviewer,
   InterviewContext,
+  Question,
   QuestionEvaluation,
 } from "@interview/contracts";
 import { CATEGORY_DIMENSIONS, computeOverallGrade } from "@interview/contracts";
@@ -29,6 +30,11 @@ function gradeByRatio(ratio: number): Grade {
  * 追问按序取题目预设 followUps；评分用启发式规则，报告标注"规则引擎评估"。
  */
 export class RuleBasedInterviewer implements IInterviewer {
+  /** 开场问题：直接拼标题 + 原始题面（规则模式不做重写） */
+  async openingQuestion(question: Question, _targetRole?: string): Promise<string> {
+    return `**${question.title}**\n\n${question.content}`;
+  }
+
   async nextUtterance(ctx: InterviewContext): Promise<string> {
     const { question, followUpIndex, history } = ctx;
     const lastAnswer = [...history].reverse().find((m) => m.role === "candidate");

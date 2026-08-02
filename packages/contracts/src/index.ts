@@ -148,6 +148,8 @@ export interface EvaluationResult {
 }
 
 export interface IInterviewer {
+  /** 生成本题的开场问题（LLM 模式下会把原始材料重写为清晰的面试问题） */
+  openingQuestion(question: Question, targetRole: string): Promise<string>;
   nextUtterance(ctx: InterviewContext): Promise<string>;
   evaluate(transcript: GroupedTranscript): Promise<EvaluationResult>;
 }

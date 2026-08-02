@@ -515,11 +515,11 @@ pnpm dev                      # server :3001 + web :5173（/trpc 已配代理）
 
 ### 13.4 剩余待办（按序）
 
-1. 起 MySQL、执行迁移（§13.1）。
-2. 跑状态机集成测试（需 DB）+ 前后端 health 联调。
-3. Phase 3 收尾：真实 DB 下跑 syncRepo 入库 → 验证幂等（重复同步题数不变）。
-4. Phase 7 收尾：五页面联调。
-5. Phase 8 端到端验收（README §12 路径）：同步仓库 → 筛选题库 → 发起「CUDA+算法」3 题面试 → 作答 → 报告 → 历史统计；LLM 模式需配 Moonshot Key 各验证一遍（含拔 Key 自动降级规则引擎）。
+1. ~~起 MySQL、执行迁移（§13.1）。~~ ✅ 2026-08-02 完成。
+2. ~~跑状态机集成测试（需 DB）+ 前后端 health 联调。~~ ✅ 22 个测试全过（修了一处测试假设，见 §13.5）。
+3. ~~Phase 3 收尾：真实 DB 下跑 syncRepo 入库 → 验证幂等。~~ ✅ 三仓入库 362+103+685=1150 题；二次同步全部 unchanged、零重复，幂等正确。
+4. ~~Phase 7 收尾：五页面联调。~~ ✅ 五个路由页面 + 全部 tRPC 接口（question/material/interview 三组）真库走通，`tsc -b` 与 `vite build` 全绿。
+5. ~~Phase 8 端到端验收（README §12 路径）。~~ ✅ 规则引擎模式与 **LLM 模式均已验收**（2026-08-02）。LLM 实测（kimi-for-coding）：4 个追问全部为动态生成、单问题、由浅入深；评估报告 evaluated_by=llm，诊断/建议/要点对照质量高；降级路径（401/400/超时/空内容）在调试过程中全部真实触发并正确回落规则引擎。
 6. 本节后补运行截图/注意事项。
 
 ### 13.5 关键决策与踩坑记录（新环境必读）
@@ -534,3 +534,13 @@ pnpm dev                      # server :3001 + web :5173（/trpc 已配代理）
 - **状态机**：reply 的「写消息→推进状态→可能触发 finish」必须在单事务内；题目快照存 questionIds，历史场次不受删题影响。
 - **LLM 容错矩阵**（§6.4 已全部实现）：无 Key 全程规则引擎；追问超时/5xx 降级预设 followUp；评估 JSON zod 校验失败重试 1 次再降级；面试官输出做 keyPoints 泄露检查。
 - **pnpm 注意**：esbuild 构建脚本白名单写在 `pnpm-workspace.yaml` 的 `onlyBuiltDependencies`（pnpm 11 不再读 package.json 的 pnpm 字段）。
+- **集成测试假设修正**（2026-08-02）：`interview.test.ts` 的「空方向题库报 PRECONDITION_FAILED」原假设 project 方向为空，但 `beforeAll` 播种了全量 15 题（含 project 2 题），真库首跑即失败。已改为测试内先删除 project 题再断言（seed 幂等，下次运行自动补回，可重复执行）。
+- **同步数据质量观察**（2026-08-02）：ai-infra-notes 中学习计划类文档（如 `cutlass/README.md` 的学习任务、`deepgemm/day*.md`）解析出的条目 `followUps`/`keyPoints` 为空——状态机行为正确（无追问直接换题），但规则引擎报告对这类题诊断意义有限。后续可考虑过滤计划类文档或做质量标记（V1 范围外，不阻塞）。
+- **.env 此前无人加载**（2026-08-02 修复）：代码只读 `process.env`，tsx 不自动加载 .env。`env.ts` 现用 Node 内置 `process.loadEnvFile()` 读仓库根 .env（文件不存在则忽略；已有环境变量优先，不覆盖）。
+- **LLM 端点与 Key 配套**（2026-08-02）：Kimi Code 会员 Key（`sk-kimi` 开头）必须配 `https://api.kimi.com/coding/v1` + `kimi-for-coding` 等 coding 模型；`api.moonshot.cn/v1` 是 Moonshot 开放平台（另一套计费账号），错配返回 401 Invalid Authentication。`.env.example` 已注明两套配置。
+- **kimi-for-coding（K2.7，强制 reasoning）适配**（2026-08-02，llm.ts）：① 请求不传 `temperature`（该模型锁定为 1，显式传 0.7 会 400）；② `max_tokens` 必须给 reasoning 留余量——追问 2048、评估 8192，过小会被思考 token 耗尽导致 content 为空（实测 256 必现）；③ 超时 15s→60s（reasoning 评估常需 20–40s，15s 会两次重试全超时降级规则引擎）。README §11 的「LLM 模式 < 18s」目标对 reasoning 模型不现实，以实际为准。
+- **当前模型：glm-5.2（CANNBot 网关）**（2026-08-02）：`.env` 配 `LLM_BASE_URL=https://cannbot.hicann.cn/gateway/compatible-mode/v1`、`LLM_MODEL=glm-5.2`（同为 reasoning 模型，此前全部适配适用）。**该网关要求双头认证**：`Authorization: Bearer <access JWT>`（cannbot CLI 登录后存于 `~/.local/share/opencode/auth.json` 的 `cannbot-cli.access`，超长有效期）+ `x-api-vkey: vk-...`（`cannbot-cli.refresh`）；只带其一返回 `Virtual Key is required`。`env.ts` 新增 `LLM_VKEY`（可选，非空时附加该头）。备选：Kimi Code `k3-256k`（公网）、`kimi-for-coding`。
+- **追问上限修复**（2026-08-02，interview.reply）：原实现追问上限 = `min(预设 followUps 数, MAX_FOLLOW_UPS)`，无预设追问的题在 LLM 模式下也 0 追问直接换题。现改为 LLM 模式上限恒为 `MAX_FOLLOW_UPS`（动态生成），规则引擎维持按预设数量（避免泛泛追问刷屏）——`factory.isLlmEnabled()` 判定。
+- **开场/换题问题由 LLM 重写**（2026-08-02）：原实现把原始材料（标题 slug + 整段笔记/命令）直接拼进开场消息，profiling 记录类材料体验极差。`IInterviewer` 新增 `openingQuestion(question, targetRole)`：LLM 实现把材料重写为「背景一两句 + 一个明确问题」（失败/泄露要点时降级模板），规则实现保持原标题+题面模板；start 开场与 reply 换题均走该接口。实测 `week1/day5 Bank Conflict Profiling` 重写为引用具体 kernel 名与 ncu 指标的清晰单问。
+- **测试库与开发库隔离**（2026-08-02）：集成测试原直连开发库，`空方向题库`用例删除 project 题会连带清空开发环境数据。`vitest.config.ts` 现将 `DATABASE_URL` 指向独立库 `interview_test`（需先 `DATABASE_URL=...interview_test pnpm db:migrate`），并强制 `LLM_API_KEY=""`。
+- **密钥卫生**（2026-08-02）：真实 Key 只放 `.env`（已 gitignore）；`.env.example` 被 git 跟踪，绝不放真实 Key（当天误填已即时清除，未进入任何提交）。

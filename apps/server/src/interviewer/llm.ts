@@ -4,12 +4,14 @@ import {
   type GroupedTranscript,
   type IInterviewer,
   type InterviewContext,
+  type Question,
   type QuestionEvaluation,
 } from "@interview/contracts";
 import { env } from "../env.js";
 import { RuleBasedInterviewer } from "./rule.js";
 
-const TIMEOUT_MS = 15_000;
+// reasoning 模型（如 kimi-for-coding）评估调用常需 20–40s，15s 会全部超时降级
+const TIMEOUT_MS = 60_000;
 const MAX_TOKENS = 1024;
 
 interface ChatMessage {
@@ -26,12 +28,13 @@ async function chatCompletion(messages: ChatMessage[], maxTokens = MAX_TOKENS): 
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${env.LLM_API_KEY}`,
+        ...(env.LLM_VKEY ? { "x-api-vkey": env.LLM_VKEY } : {}),
       },
       body: JSON.stringify({
         model: env.LLM_MODEL,
         messages,
         max_tokens: maxTokens,
-        temperature: 0.7,
+        // 不传 temperature：部分模型（如 kimi-for-coding）锁定为 1，显式传 0.7 会 400
       }),
       signal: controller.signal,
     });
@@ -52,6 +55,31 @@ function leaksKeyPoints(utterance: string, keyPoints: string): boolean {
     .map((s) => s.trim())
     .filter((s) => s.length >= 10);
   return sentences.some((s) => utterance.includes(s));
+}
+
+/** 开场问题 prompt：把原始材料重写为清晰的面试问题（学习笔记/命令记录类材料尤其需要） */
+function buildOpeningMessages(question: Question, targetRole: string): ChatMessage[] {
+  const system = [
+    `你是一位资深技术面试官，正在面试${targetRole}岗位的候选人，现在要向候选人抛出一道新题。`,
+    "",
+    `【题目材料】标题：${question.title}（方向：${question.category}，难度：${question.difficulty}）`,
+    question.content.slice(0, 3000),
+    question.keyPoints ? `【评分要点】（仅供你把握考点，严禁泄露给候选人）\n${question.keyPoints}` : "",
+    "",
+    "【任务】把上面的材料转化为你要对候选人说的话：",
+    "1. 若材料本身已是清晰的面试题，直接基于它提问（可精简转述，保留必要细节）；",
+    "2. 若材料是学习笔记、实验记录、代码或命令集合，先用一两句话向候选人介绍背景，再提出一个明确、可口头回答的问题；",
+    "3. 只提一个问题，禁止复合提问；不要泄露评分要点；",
+    "4. 材料中的代码/命令如与问题强相关可少量引用，不要整段粘贴。",
+    "",
+    "【输出契约】只输出你对候选人说的话本身，不要旁白、标签或引号。",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return [
+    { role: "system", content: system },
+    { role: "user", content: "请给出你的开场问题。" },
+  ];
 }
 
 function interviewerSystemPrompt(ctx: InterviewContext): string {
@@ -140,9 +168,24 @@ function extractJson(text: string): unknown {
 export class LlmInterviewer implements IInterviewer {
   private fallback = new RuleBasedInterviewer();
 
+  async openingQuestion(question: Question, targetRole: string): Promise<string> {
+    try {
+      const utterance = await chatCompletion(buildOpeningMessages(question, targetRole), 2048);
+      if (leaksKeyPoints(utterance, question.keyPoints)) {
+        console.warn(`[llm] 开场问题疑似泄露评分要点（题 ${question.id}），降级模板`);
+        return this.fallback.openingQuestion(question, targetRole);
+      }
+      return utterance;
+    } catch (err) {
+      console.warn(`[llm] 开场问题生成失败（${(err as Error).message}），降级模板`);
+      return this.fallback.openingQuestion(question, targetRole);
+    }
+  }
+
   async nextUtterance(ctx: InterviewContext): Promise<string> {
     try {
-      const utterance = await chatCompletion(buildUtteranceMessages(ctx), 256);
+      // reasoning 模型会先消耗思考 token，预算太小会全部耗在 reasoning 上导致 content 为空
+      const utterance = await chatCompletion(buildUtteranceMessages(ctx), 2048);
       if (leaksKeyPoints(utterance, ctx.question.keyPoints)) {
         console.warn(`[llm] 追问疑似泄露评分要点（题 ${ctx.question.id}），降级预设追问`);
         return this.fallback.nextUtterance(ctx);
@@ -158,7 +201,7 @@ export class LlmInterviewer implements IInterviewer {
     const messages = buildEvaluationMessages(transcript);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const raw = await chatCompletion(messages, 2048);
+        const raw = await chatCompletion(messages, 8192);
         const parsed = evaluationJsonSchema.parse(extractJson(raw));
         const byId = new Map(transcript.groups.map((g) => [g.question.id, g.question]));
         const questions: QuestionEvaluation[] = parsed.questions

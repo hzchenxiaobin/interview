@@ -18,6 +18,14 @@ function makeCtx(overrides: Partial<InterviewContext>): InterviewContext {
   return { question, history: [], followUpIndex: 0, targetRole: "AI Infra 工程师", ...overrides };
 }
 
+describe("RuleBasedInterviewer.openingQuestion", () => {
+  it("拼接标题与原始题面", async () => {
+    const r = new RuleBasedInterviewer();
+    const q = await r.openingQuestion(question, "AI Infra 工程师");
+    expect(q).toBe(`**${question.title}**\n\n${question.content}`);
+  });
+});
+
 describe("RuleBasedInterviewer.nextUtterance", () => {
   it("按序取预设追问", async () => {
     const r = new RuleBasedInterviewer();
