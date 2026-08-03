@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { CATEGORY_LABELS } from "@interview/contracts";
 import { queryClient, trpc, type QuestionListItem } from "../../lib/trpc";
 import { DifficultyBadge } from "../../components/ui";
@@ -66,6 +67,14 @@ export function QuestionCard({
           )}
           {question.source && <div className="text-xs text-gray-400">来源：{question.source}</div>}
           <div className="flex items-center gap-2 pt-1">
+            {question.category === "leetcode" && (
+              <Link
+                to={`/judge/${question.id}`}
+                className="rounded-md bg-blue-50 px-3 py-1 text-xs text-blue-600 hover:bg-blue-100"
+              >
+                在线评测
+              </Link>
+            )}
             <button
               type="button"
               onClick={onEdit}

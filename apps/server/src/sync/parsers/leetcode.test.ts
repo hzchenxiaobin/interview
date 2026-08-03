@@ -67,10 +67,52 @@ describe("leetcode parser", () => {
   });
 
   it("缺元数据的文件记入 skipped", () => {
+    // 路径在 150 清单内但内容缺元数据 → 通过白名单后解析失败，记入 skipped
     const { questions, skipped } = parse([
-      { path: "solution/0001-0100/999_坏文件.md", content: "# 只有标题\n\n没有元数据。\n" },
+      { path: "solution/0001-0100/53_最大子数组和.md", content: "# 只有标题\n\n没有元数据。\n" },
     ]);
     expect(questions).toHaveLength(0);
-    expect(skipped).toEqual(["solution/0001-0100/999_坏文件.md"]);
+    expect(skipped).toEqual(["solution/0001-0100/53_最大子数组和.md"]);
+  });
+
+  it("存在 hot-interview.md 时只导入白名单内的题目", async () => {
+    const files = await loadFixtures("leetcode");
+    files.push({
+      path: "hot-interview.md",
+      content: [
+        "# 高频题",
+        "| [53. 最大子数组和](https://leetcode.cn/problems/maximum-subarray/) | 中等 | [站内题解](solution/0001-0100/53_最大子数组和.md) |",
+        "| 剑指 Offer 51 | 数组中的逆序对 | [站内题解](solution/0101-0200/LCOF51_数组中的逆序对.md) |",
+      ].join("\n"),
+    });
+    const { questions } = parse(files);
+
+    expect(questions.map((q) => q.sourceKey).sort()).toEqual([
+      "leetcode:solution/0001-0100/53_最大子数组和.md",
+      "leetcode:solution/0101-0200/LCOF51_数组中的逆序对.md",
+    ]);
+  });
+
+  it("本地 leetcode-hot150.txt 白名单：清单外题解被过滤", async () => {
+    const files = await loadFixtures("leetcode");
+    files.push({
+      path: "solution/0001-0100/999_不在清单内的题.md",
+      content: [
+        "# 不在清单内的题",
+        "",
+        "- **链接**：[999. 不在清单内的题](https://leetcode.cn/problems/x/)",
+        "- **难度**：简单",
+        "- **标签**：数组",
+        "",
+        "## 1. 题目概述",
+        "",
+        "题面。",
+      ].join("\n"),
+    });
+    const { questions } = parse(files);
+
+    // 固件 4 题均在 150 清单内，新增的清单外题被本地白名单过滤
+    expect(questions).toHaveLength(4);
+    expect(questions.every((q) => !q.sourceKey.includes("999_"))).toBe(true);
   });
 });

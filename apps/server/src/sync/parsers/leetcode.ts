@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { ParsedQuestion, RepoFile } from "@interview/contracts";
 import {
   findSection,
@@ -12,10 +14,13 @@ import {
  * leetcode 仓库 → category=leetcode
  * 结构：solution/{区间}/{题号}_{题名}.md，元数据在 H1 后、第一个 ## 前；
  * followUps 取"面试要点"节（两种格式），keyPoints = 面试要点答案 + 复杂度分析节。
+ * 白名单两层收敛：仓库 hot-interview.md（270 道高频）∩ 本地 leetcode-hot150.txt
+ * （150 道最高频，剔除同类简单题）；任一缺失时只用另一层，都缺失则全量导入。
  */
 export function parse(repoFiles: RepoFile[]): ParseOutput {
   const questions: ParsedQuestion[] = [];
   const skipped: string[] = [];
+  const whitelist = combinedWhitelist(repoFiles);
 
   for (const file of repoFiles) {
     const segments = file.path.split("/");
@@ -23,12 +28,42 @@ export function parse(repoFiles: RepoFile[]): ParseOutput {
     if (segments.length !== 3 || segments[0] !== "solution") continue;
     const baseName = segments[2];
     if (!baseName.endsWith(".md") || baseName === "SKILL.md") continue;
+    if (whitelist && !whitelist.has(file.path)) continue;
 
     const question = parseSolution(file.path, file.content, baseName.slice(0, -3));
     if (question) questions.push(question);
     else skipped.push(file.path);
   }
   return { questions, skipped };
+}
+
+function combinedWhitelist(repoFiles: RepoFile[]): Set<string> | null {
+  const remote = hotWhitelist(repoFiles);
+  const local = localHotWhitelist();
+  if (remote && local) return new Set([...remote].filter((p) => local.has(p)));
+  return remote ?? local;
+}
+
+/** 从 hot-interview.md 提取"站内题解"链接路径作为白名单；文件缺失或无链接时返回 null（不过滤） */
+function hotWhitelist(repoFiles: RepoFile[]): Set<string> | null {
+  const hot = repoFiles.find((f) => f.path === "hot-interview.md");
+  if (!hot) return null;
+  const paths = [...hot.content.matchAll(/站内题解\]\((solution\/[^)]+?\.md)\)/g)].map((m) => m[1]);
+  return paths.length > 0 ? new Set(paths) : null;
+}
+
+/** 本地 150 道最高频题清单（与本模块同目录）；文件缺失或为空时返回 null（不过滤） */
+function localHotWhitelist(): Set<string> | null {
+  try {
+    const path = fileURLToPath(new URL("./leetcode-hot150.txt", import.meta.url));
+    const lines = readFileSync(path, "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return lines.length > 0 ? new Set(lines) : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseSolution(path: string, md: string, fileBase: string): ParsedQuestion | null {

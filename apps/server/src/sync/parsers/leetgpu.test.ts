@@ -3,21 +3,25 @@ import { loadFixtures } from "./fixtures.js";
 import { parse } from "./leetgpu.js";
 
 describe("leetgpu parser", () => {
-  it("解析难度目录下的 solution 文件，sourceKey 用目录名", async () => {
+  it("解析难度目录下的 solution 文件，sourceKey 用目录名；白名单外题被过滤", async () => {
     const files = await loadFixtures("leetgpu");
     const { questions, skipped } = parse(files);
 
     expect(skipped).toEqual([]);
-    expect(questions).toHaveLength(2);
-    for (const q of questions) {
-      expect(q.category).toBe("cuda");
-      expect(q.sourceKey).toMatch(/^leetgpu:(easy|medium|hard)\/\d+_/);
-    }
+    // easy/1_vector_add 是低频题（不在 leetgpu-hot23.txt），被白名单过滤
+    expect(questions).toHaveLength(1);
+    expect(questions[0].category).toBe("cuda");
+    expect(questions[0].sourceKey).toBe("leetgpu:hard/74_gpt2_block");
   });
 
-  it("完整结构（easy/1_vector_add）", async () => {
-    const { questions } = parse(await loadFixtures("leetgpu"));
-    const q = questions.find((x) => x.sourceKey === "leetgpu:easy/1_vector_add")!;
+  it("完整结构（以白名单内题号目录解析 vector_add 固件）", async () => {
+    const files = (await loadFixtures("leetgpu")).map((f) =>
+      f.path.startsWith("easy/1_vector_add/")
+        ? { ...f, path: f.path.replace("easy/1_vector_add/", "easy/4_reduction/") }
+        : f,
+    );
+    const { questions } = parse(files);
+    const q = questions.find((x) => x.sourceKey === "leetgpu:easy/4_reduction")!;
 
     expect(q.title).toBe("1. Vector Addition");
     expect(q.difficulty).toBe("easy");

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { ParsedQuestion, RepoFile } from "@interview/contracts";
 import {
   extractTables,
@@ -15,15 +17,19 @@ const DIFFICULTY_DIRS = new Set(["easy", "medium", "hard"]);
  * 结构：{easy|medium|hard}/{题号}_{slug}/leetgpu-*-solution.md（目录 slug 与文件 slug
  * 不总是一致，在目录内按文件名匹配；题号跨目录撞号，sourceKey 用目录名）。
  * 容忍缺节（如 hard/74_gpt2_block 无"性能分析与优化"节）。
+ * 白名单：本地 leetgpu-hot23.txt（面经高频+中频 23 题，见 cuda/topics README），
+ * 按目录题号过滤；文件缺失/为空时不过滤。
  */
 export function parse(repoFiles: RepoFile[]): ParseOutput {
   const questions: ParsedQuestion[] = [];
   const skipped: string[] = [];
+  const whitelist = hotWhitelist();
 
   for (const file of repoFiles) {
     const segments = file.path.split("/");
     if (segments.length !== 3 || !DIFFICULTY_DIRS.has(segments[0])) continue;
     if (!/^leetgpu-.*-solution\.md$/.test(segments[2])) continue;
+    if (whitelist && !whitelist.has(/^(\d+)_/.exec(segments[1])?.[1] ?? "")) continue;
 
     const question = parseSolution(
       file.content,
@@ -34,6 +40,20 @@ export function parse(repoFiles: RepoFile[]): ParseOutput {
     else skipped.push(file.path);
   }
   return { questions, skipped };
+}
+
+/** 本地高频+中频题号清单（与本模块同目录，每行一个题号）；文件缺失或为空时返回 null（不过滤） */
+function hotWhitelist(): Set<string> | null {
+  try {
+    const path = fileURLToPath(new URL("./leetgpu-hot23.txt", import.meta.url));
+    const lines = readFileSync(path, "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return lines.length > 0 ? new Set(lines) : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseSolution(
