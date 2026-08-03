@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -127,7 +127,15 @@ export const interviewRouter = router({
       .from(questions)
       .where(
         scope
-          ? and(eq(questions.userId, ctx.userId), eq(questions.stale, 0), like(questions.sourceKey, `${scope}%`))
+          ? and(
+              eq(questions.userId, ctx.userId),
+              eq(questions.stale, 0),
+              // scope 同时匹配规则同步（ai-infra-notes:）与 LLM 题库（bank:ai-infra-notes:）题目
+              or(
+                like(questions.sourceKey, `${scope}%`),
+                like(questions.sourceKey, `bank:${scope}%`),
+              ),
+            )
           : and(eq(questions.userId, ctx.userId), eq(questions.stale, 0), inArray(questions.category, input.categories)),
       );
     if (rows.length === 0) {
