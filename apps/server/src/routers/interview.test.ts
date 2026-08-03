@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { _resetUserCache, getCurrentUserId } from "../auth.js";
@@ -6,8 +6,40 @@ import { appRouter } from "./index.js";
 
 /**
  * 面试状态机集成测试：需要可连接的 MySQL（DATABASE_URL）。
- * 无 DB 环境时整体跳过。
+ * 无 DB 环境时整体跳过。LLM 调用通过 stub fetch mock（纯 LLM 模式，无规则引擎）。
  */
+
+// mock OpenAI 兼容 /chat/completions：按 system prompt 区分开场/追问/评估
+vi.stubGlobal("fetch", async (_url: unknown, init?: { body?: unknown }) => {
+  const body = JSON.parse(String(init?.body ?? "{}")) as {
+    messages?: Array<{ role: string; content: string }>;
+  };
+  const system = body.messages?.find((m) => m.role === "system")?.content ?? "";
+  const user = body.messages?.find((m) => m.role === "user")?.content ?? "";
+  let content: string;
+  if (system.includes("结构化评估")) {
+    const ids = [...user.matchAll(/questionId=(\d+)/g)].map((m) => Number(m[1]));
+    content = JSON.stringify({
+      overallGrade: "B",
+      summary: "mock 总评",
+      questions: ids.map((questionId) => ({
+        questionId,
+        dimensions: [{ name: "综合", grade: "B" }],
+        diagnosis: "mock 诊断",
+        suggestion: "mock 建议",
+      })),
+      weakDimensions: [],
+    });
+  } else if (system.includes("抛出一道新题")) {
+    content = "请谈谈你对这个知识点的理解。";
+  } else {
+    content = "能再展开讲讲细节吗？";
+  }
+  return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+});
 async function dbAvailable(): Promise<boolean> {
   try {
     await db.execute(sql`select 1`);

@@ -39,7 +39,8 @@ export const questionRouter = router({
     return { byCategory, total: Object.values(byCategory).reduce((a, b) => a + b, 0) };
   }),
 
-  /** ai-infra-notes 的考察范围（Dashboard 开始面试用）：按周（daily）与按专题（topics） */
+  /** ai-infra-notes 的考察范围（Dashboard 开始面试用）：按周（daily）与按专题（topics）。
+   *  同时统计规则同步（ai-infra-notes:）与 LLM 题库（bank:ai-infra-notes:）两种 sourceKey。 */
   scopes: authedProcedure.query(async ({ ctx }) => {
     const rows = await db
       .select({ sourceKey: questions.sourceKey })
@@ -48,13 +49,13 @@ export const questionRouter = router({
         and(
           eq(questions.userId, ctx.userId),
           eq(questions.stale, 0),
-          like(questions.sourceKey, "ai-infra-notes:aiinfra/%"),
+          like(questions.sourceKey, "%ai-infra-notes:aiinfra/%"),
         ),
       );
     const topics = new Map<string, number>();
     const weeks = new Map<string, number>();
     for (const { sourceKey } of rows) {
-      const m = /^ai-infra-notes:aiinfra\/(topics|daily)\/([^/]+)\//.exec(sourceKey);
+      const m = /^(?:bank:)?ai-infra-notes:aiinfra\/(topics|daily)\/([^/]+)\//.exec(sourceKey);
       if (!m) continue;
       const map = m[1] === "topics" ? topics : weeks;
       map.set(m[2], (map.get(m[2]) ?? 0) + 1);

@@ -15,7 +15,7 @@ import {
 import { db } from "../db/client.js";
 import { interviewMessages, interviewSessions, questions } from "../db/schema.js";
 import { authedProcedure, router } from "../trpc.js";
-import { getInterviewer, isLlmEnabled } from "../interviewer/factory.js";
+import { getInterviewer } from "../interviewer/factory.js";
 
 type SessionRow = typeof interviewSessions.$inferSelect;
 type MessageRow = typeof interviewMessages.$inferSelect;
@@ -222,8 +222,8 @@ export const interviewRouter = router({
         content: input.content,
       });
 
-      // LLM 模式可动态生成追问，上限 MAX_FOLLOW_UPS；规则引擎只按预设追问数量追问
-      const maxFollowUps = isLlmEnabled() ? MAX_FOLLOW_UPS : Math.min(current.followUps.length, MAX_FOLLOW_UPS);
+      // 纯 LLM 模式：追问由 LLM 动态生成，上限 MAX_FOLLOW_UPS
+      const maxFollowUps = MAX_FOLLOW_UPS;
       let newIndex = session.currentIndex;
       let newFollowUpIndex = session.followUpIndex;
       let finished = false;
@@ -393,14 +393,8 @@ async function finishSession(sessionId: number, userId: number) {
     durationMinutes,
   };
 
-  let result;
-  try {
-    result = await getInterviewer().evaluate(transcript);
-  } catch (err) {
-    console.error("LLM 评估失败，降级规则引擎：", err);
-    const { RuleBasedInterviewer } = await import("../interviewer/rule.js");
-    result = await new RuleBasedInterviewer().evaluate(transcript);
-  }
+  // 纯 LLM 模式：评估失败直接抛错（LLM 内部已重试一次）
+  const result = await getInterviewer().evaluate(transcript);
 
   const report = renderReportMarkdown({
     sessionId,

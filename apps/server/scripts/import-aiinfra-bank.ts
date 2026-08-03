@@ -27,7 +27,11 @@ const bankFileSchema = z.object({
 });
 
 async function main() {
-  const bank = bankFileSchema.parse(JSON.parse(await readFile(BANK_FILE, "utf8")));
+  // 生成产物按旧四分类（cpp/cuda/project）抽取；现行分类体系（d37c8b9）下
+  // ai-infra-notes 全部归 knowledge（cuda 分类仅收 leetgpu 编程题），导入时统一改写
+  const raw = JSON.parse(await readFile(BANK_FILE, "utf8")) as { questions: Array<{ category: string }> };
+  for (const q of raw.questions) q.category = "knowledge";
+  const bank = bankFileSchema.parse(raw);
   const userId = await getCurrentUserId();
   console.log(`题库文件 ${bank.questions.length} 题，导入 userId=${userId}`);
 

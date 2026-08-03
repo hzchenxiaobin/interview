@@ -4,4 +4,4 @@ node_modules/
 dist/
 .env
 *.tsbuildinfo
-apps/server/data/
+apps/server/data/.bank-checkpoint.jsonl
