@@ -26,14 +26,14 @@ const TIMEOUT_MS = 90_000;
 const MAX_TOKENS = 8192;
 const MAX_CONTENT_CHARS = 15_000;
 
-// 与规则解析器 aiInfraNotes.ts 相同的取材范围与分类映射
+// 与规则解析器 aiInfraNotes.ts 相同的取材范围与分类映射（全部归 knowledge；cuda 仅收 leetgpu 编程题）
 const TOPIC_CATEGORY: Record<string, Category> = {
   cpp: "knowledge",
-  cuda: "cuda",
-  cute: "cuda",
-  cutlass: "cuda",
-  deepgemm: "cuda",
-  triton: "cuda",
+  cuda: "knowledge",
+  cute: "knowledge",
+  cutlass: "knowledge",
+  deepgemm: "knowledge",
+  triton: "knowledge",
   moe: "knowledge",
   pytorch: "knowledge",
   shengteng: "knowledge",
@@ -72,7 +72,7 @@ function scopeFiles(files: Array<{ path: string; content: string }>): ScopedFile
     } else if ((m = /^aiinfra\/topics\/([^/]+)\/[^/]+\.md$/.exec(f.path)) && TOPIC_CATEGORY[m[1]]) {
       out.push({ ...f, categoryHint: TOPIC_CATEGORY[m[1]], source: `ai-infra-notes/${m[1]}` });
     } else if ((m = /^aiinfra\/daily\/(week\d+)\/(day\d+)\/README\.md$/.exec(f.path))) {
-      out.push({ ...f, categoryHint: "cuda", source: `ai-infra-notes/daily/${m[1]}` });
+      out.push({ ...f, categoryHint: "knowledge", source: `ai-infra-notes/daily/${m[1]}` });
     } else if (/^profiling\/week[123]\/day[^/]+\/README\.md$/.test(f.path)) {
       out.push({ ...f, categoryHint: "knowledge", source: "ai-infra-notes/profiling" });
     }

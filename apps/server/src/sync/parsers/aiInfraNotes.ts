@@ -1,14 +1,14 @@
 import type { Category, ParsedQuestion, RepoFile } from "@interview/contracts";
 import { blankCodeFences, splitSections, type ParseOutput } from "./utils.js";
 
-/** 专题 → category 映射（cuda 系归 cuda，其余归 knowledge） */
+/** 专题 → category 映射（全部归 knowledge；cuda 分类仅收 leetgpu 编程题） */
 const TOPIC_CATEGORY: Record<string, Category> = {
   cpp: "knowledge",
-  cuda: "cuda",
-  cute: "cuda",
-  cutlass: "cuda",
-  deepgemm: "cuda",
-  triton: "cuda",
+  cuda: "knowledge",
+  cute: "knowledge",
+  cutlass: "knowledge",
+  deepgemm: "knowledge",
+  triton: "knowledge",
   moe: "knowledge",
   pytorch: "knowledge",
   shengteng: "knowledge",
@@ -22,7 +22,7 @@ const MIN_ENTRY_CHARS = 100;
 const SOURCE_PREFIX = "ai-infra-notes";
 
 /**
- * ai-infra-notes 仓库 → category=knowledge / cuda
+ * ai-infra-notes 仓库 → category=knowledge（cuda 分类仅收 leetgpu 编程题）
  * 解析范围：
  * - aiinfra/topics/interview/notes/us_interview_qa.md（`**Q：xxx**` + bullet 答案）
  * - aiinfra/topics/interview/notes/social_interview_qa.md（`### Q1 ✅ 项目题：xxx`）
@@ -170,7 +170,7 @@ function parseTopicFile(path: string, md: string, topic: string): ParsedQuestion
   return out;
 }
 
-/** daily/weekN/dayM/README.md → 每天一题（category=cuda）
+/** daily/weekN/dayM/README.md → 每天一题（category=knowledge）
  * content = 面试要点节之前的正文；followUps/keyPoints 取自「面试要点」节的
  * `N. **问题**` + <details> 答案；无面试要点节时 followUps 为空。 */
 function parseDailyReadme(
@@ -226,7 +226,7 @@ function parseDailyReadme(
   }
 
   return {
-    category: "cuda",
+    category: "knowledge",
     title: `${week}/${day} ${topic}`,
     content,
     difficulty: "medium",

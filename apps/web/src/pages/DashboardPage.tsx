@@ -32,53 +32,41 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* 题库概览 */}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">题库概览</h2>
-        {stats.isLoading ? (
-          <Loading />
-        ) : stats.error ? (
-          <ErrorBox error={stats.error} />
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {CATEGORIES.map((c) => (
-                <Card key={c} className="text-center">
-                  <div className="text-sm text-gray-500">{CATEGORY_LABELS[c]}</div>
-                  <div className="mt-1 text-3xl font-bold">{byCategory?.[c] ?? 0}</div>
-                  <div className="text-xs text-gray-400">题</div>
-                </Card>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-gray-400">共 {stats.data?.total ?? 0} 题</p>
-          </>
-        )}
-      </section>
-
       {/* 开始面试 */}
-      <Card>
-        <h2 className="mb-3 text-lg font-semibold">开始面试</h2>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div className={`flex flex-wrap gap-4 ${scope ? "pointer-events-none opacity-40" : ""}`}>
-            {CATEGORIES.map((c) => (
-              <label key={c} className="flex cursor-pointer items-center gap-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(c)}
-                  onChange={() => toggle(c)}
-                  className="h-4 w-4 accent-blue-600"
-                />
+      <Card className="p-5">
+        <h2 className="mb-4 text-lg font-semibold">开始面试</h2>
+
+        {/* 方向选择（选中考察范围后禁用） */}
+        <div className={`flex flex-wrap gap-2 ${scope ? "pointer-events-none opacity-40" : ""}`}>
+          {CATEGORIES.map((c) => {
+            const active = selected.includes(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => toggle(c)}
+                className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                  active
+                    ? "border-blue-600 bg-blue-50 font-medium text-blue-700"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
                 {CATEGORY_LABELS[c]}
-                <span className="text-xs text-gray-400">({byCategory?.[c] ?? 0})</span>
-              </label>
-            ))}
-          </div>
-          <label className="flex items-center gap-2 text-sm">
+                <span className={`ml-1.5 text-xs ${active ? "text-blue-400" : "text-gray-400"}`}>
+                  {byCategory?.[c] ?? 0} 题
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-gray-100 pt-4">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
             考察范围
             <select
               value={scope}
               onChange={(e) => setScope(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1"
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-gray-900"
             >
               <option value="">按方向（上方勾选）</option>
               {scopes.data && scopes.data.weeks.length > 0 && (
@@ -101,12 +89,12 @@ export default function DashboardPage() {
               )}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
             题量
             <select
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
-              className="rounded-md border border-gray-300 px-2 py-1"
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-gray-900"
             >
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
@@ -116,6 +104,7 @@ export default function DashboardPage() {
             </select>
           </label>
           <Button
+            className="ml-auto px-5 py-2"
             disabled={!canStart || start.isPending}
             onClick={() =>
               start.mutate(scope ? { categories: [], count, scope } : { categories: selected, count })
@@ -124,8 +113,9 @@ export default function DashboardPage() {
             {start.isPending ? "创建中…" : "开始面试"}
           </Button>
         </div>
+
         {!canStart && (
-          <p className="mt-2 text-xs text-gray-400">请至少勾选一个方向，或选择一个考察范围</p>
+          <p className="mt-3 text-xs text-gray-400">请至少勾选一个方向，或选择一个考察范围</p>
         )}
         {start.error && (
           <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">

@@ -36,7 +36,7 @@ run("interview 状态机（集成）", () => {
   });
 
   it("start → reply×N → 自动 finish → 报告", async () => {
-    const start = await caller.interview.start({ categories: ["cuda", "leetcode"], count: 2 });
+    const start = await caller.interview.start({ categories: ["knowledge", "leetcode"], count: 2 });
     expect(start.state.status).toBe("active");
     expect(start.state.totalQuestions).toBe(2);
     expect(start.messages).toHaveLength(1);

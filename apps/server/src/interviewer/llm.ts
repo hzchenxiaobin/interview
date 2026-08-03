@@ -8,9 +8,8 @@ import {
   type QuestionEvaluation,
 } from "@interview/contracts";
 import { env } from "../env.js";
-import { RuleBasedInterviewer } from "./rule.js";
 
-// reasoning 模型（如 kimi-for-coding）评估调用常需 20–40s，15s 会全部超时降级
+// reasoning 模型（如 glm-5.2）评估调用常需 20–40s，15s 会全部超时
 const TIMEOUT_MS = 60_000;
 const MAX_TOKENS = 1024;
 
@@ -20,6 +19,7 @@ interface ChatMessage {
 }
 
 async function chatCompletion(messages: ChatMessage[], maxTokens = MAX_TOKENS): Promise<string> {
+  if (!env.LLM_API_KEY) throw new Error("未配置 LLM_API_KEY（系统为纯 LLM 模式，无规则引擎降级）");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -142,7 +142,8 @@ function buildEvaluationMessages(transcript: GroupedTranscript): ChatMessage[] {
     "【评分维度】按题目方向选择：",
     "- leetcode：正确性、复杂度分析、边界处理、表达清晰度",
     "- cuda：概念正确性、性能意识、工具链实践、表达清晰度",
-    "- knowledge：准确性、深度、工程权衡、表达清晰度；项目经历题按 STAR（情境/任务/行动/结果）评估",
+    "- cpp：准确性、深度、工程权衡、表达清晰度",
+    "- project：情境(S)、任务(T)、行动(A)、结果(R)",
     "",
     "【输出契约】只输出一个 JSON 对象（不要 markdown 代码块），结构：",
     `{"overallGrade":"A|B|C|D","summary":"一句话总评","questions":[{"questionId":数字,"dimensions":[{"name":"维度名","grade":"A|B|C|D"}],"diagnosis":"诊断","suggestion":"改进建议"}],"weakDimensions":["薄弱维度Top2"]}`,
@@ -163,41 +164,38 @@ function extractJson(text: string): unknown {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
-/** LLM 面试官（README §6.2）：OpenAI 兼容协议，故障时单次降级规则引擎 */
+/**
+ * LLM 面试官（README §6.2）：OpenAI 兼容协议。
+ * 系统为纯 LLM 模式（无规则引擎）：发言类调用失败或疑似泄露要点时重试一次，
+ * 仍失败则抛错由上层呈现；评估调用同样重试一次后抛错。
+ */
 export class LlmInterviewer implements IInterviewer {
-  private fallback = new RuleBasedInterviewer();
-
-  async openingQuestion(question: Question, targetRole: string): Promise<string> {
-    try {
-      const utterance = await chatCompletion(buildOpeningMessages(question, targetRole), 2048);
-      if (leaksKeyPoints(utterance, question.keyPoints)) {
-        console.warn(`[llm] 开场问题疑似泄露评分要点（题 ${question.id}），降级模板`);
-        return this.fallback.openingQuestion(question, targetRole);
+  /** 发言生成：失败/泄露要点重试一次，再失败抛错 */
+  private async utterance(build: () => ChatMessage[], keyPoints: string, what: string): Promise<string> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        // reasoning 模型会先消耗思考 token，预算太小会全部耗在 reasoning 上导致 content 为空
+        const text = await chatCompletion(build(), 2048);
+        if (leaksKeyPoints(text, keyPoints)) throw new Error("疑似泄露评分要点");
+        return text;
+      } catch (err) {
+        console.warn(`[llm] ${what}第 ${attempt + 1} 次失败：${(err as Error).message}`);
       }
-      return utterance;
-    } catch (err) {
-      console.warn(`[llm] 开场问题生成失败（${(err as Error).message}），降级模板`);
-      return this.fallback.openingQuestion(question, targetRole);
     }
+    throw new Error(`${what}失败（已重试一次）`);
   }
 
-  async nextUtterance(ctx: InterviewContext): Promise<string> {
-    try {
-      // reasoning 模型会先消耗思考 token，预算太小会全部耗在 reasoning 上导致 content 为空
-      const utterance = await chatCompletion(buildUtteranceMessages(ctx), 2048);
-      if (leaksKeyPoints(utterance, ctx.question.keyPoints)) {
-        console.warn(`[llm] 追问疑似泄露评分要点（题 ${ctx.question.id}），降级预设追问`);
-        return this.fallback.nextUtterance(ctx);
-      }
-      return utterance;
-    } catch (err) {
-      console.warn(`[llm] 追问失败（${(err as Error).message}），降级预设追问`);
-      return this.fallback.nextUtterance(ctx);
-    }
+  openingQuestion(question: Question, targetRole: string): Promise<string> {
+    return this.utterance(() => buildOpeningMessages(question, targetRole), question.keyPoints, "开场问题生成");
+  }
+
+  nextUtterance(ctx: InterviewContext): Promise<string> {
+    return this.utterance(() => buildUtteranceMessages(ctx), ctx.question.keyPoints, "追问生成");
   }
 
   async evaluate(transcript: GroupedTranscript): Promise<EvaluationResult> {
     const messages = buildEvaluationMessages(transcript);
+    let lastError: Error | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const raw = await chatCompletion(messages, 8192);
@@ -216,15 +214,18 @@ export class LlmInterviewer implements IInterviewer {
               suggestion: q.suggestion,
             };
           });
-        // LLM 漏题时补规则评分
+        // LLM 漏题时按未作答处理（不再降级规则评分）
         const covered = new Set(questions.map((q) => q.questionId));
-        const missing = transcript.groups.filter((g) => !covered.has(g.question.id));
-        if (missing.length > 0) {
-          const fallbackResult = await this.fallback.evaluate({
-            ...transcript,
-            groups: missing,
+        for (const g of transcript.groups) {
+          if (covered.has(g.question.id)) continue;
+          questions.push({
+            questionId: g.question.id,
+            title: g.question.title,
+            category: g.question.category,
+            dimensions: [{ name: "综合", grade: "D" }],
+            diagnosis: "LLM 评估未覆盖本题，按未有效作答处理。",
+            suggestion: "建议重新针对本题进行一轮面试。",
           });
-          questions.push(...fallbackResult.questions);
         }
         questions.sort(
           (a, b) =>
@@ -239,10 +240,10 @@ export class LlmInterviewer implements IInterviewer {
           evaluatedBy: "llm",
         };
       } catch (err) {
-        console.warn(`[llm] 评估第 ${attempt + 1} 次失败：${(err as Error).message}`);
+        lastError = err as Error;
+        console.warn(`[llm] 评估第 ${attempt + 1} 次失败：${lastError.message}`);
       }
     }
-    console.warn("[llm] 评估重试仍失败，降级规则引擎");
-    return this.fallback.evaluate(transcript);
+    throw new Error(`评估失败（已重试一次）：${lastError?.message ?? "未知错误"}`);
   }
 }

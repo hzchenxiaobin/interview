@@ -69,9 +69,10 @@ export const SEED_QUESTIONS: QuestionInput[] = [
       "BFS+队列，按层 size 切片分组；自底向上最后 reverse 或头插；之字形按层奇偶翻转；DFS 记录 depth 写入 res[depth]；N 叉树仅把左右孩子换成 children 列表。",
     source: "LeetCode 102",
   },
-  // ---------------------------------------------------------------- CUDA
+  // ------------------------------------------------- 专业知识（CUDA 八股）
+  // 注意：cuda 分类只保留 leetgpu 编程题，概念/八股题一律归 knowledge
   {
-    category: "cuda",
+    category: "knowledge",
     title: "Shared Memory Bank Conflict 如何排查与消除",
     content: "解释 shared memory bank conflict 的成因，并说明在 kernel 中如何定位和优化。",
     difficulty: "medium",
@@ -87,7 +88,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "CUDA 课程 · 内存层级章节",
   },
   {
-    category: "cuda",
+    category: "knowledge",
     title: "Grid-Stride Loop 是什么，解决什么问题",
     content: "解释 grid-stride loop 的写法与动机：为什么 CUDA kernel 常用它处理任意规模数据。",
     difficulty: "easy",
@@ -103,7 +104,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "CUDA 课程 · kernel 基础",
   },
   {
-    category: "cuda",
+    category: "knowledge",
     title: "Online Softmax（FlashAttention 前置知识）",
     content:
       "讲解 online softmax 的递推公式：如何在遍历 KV 块时维护 running max 与 running sum，避免存储全量 attention 分数。",
@@ -120,7 +121,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "FlashAttention 论文 / CUDA 课程",
   },
   {
-    category: "cuda",
+    category: "knowledge",
     title: "内存合并访问（Coalesced Access）与算术强度",
     content:
       "什么是 coalesced memory access？结合算术强度说明为什么大多数 elementwise kernel 是 memory-bound。",
@@ -137,7 +138,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "CUDA 课程 · 性能分析",
   },
   {
-    category: "cuda",
+    category: "knowledge",
     title: "如何用 ncu Roofline 分析一个 kernel",
     content: "说明用 Nsight Compute 对 kernel 做 roofline 分析的流程：看哪些指标、如何判定瓶颈、下一步动作。",
     difficulty: "medium",

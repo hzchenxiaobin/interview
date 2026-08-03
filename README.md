@@ -14,7 +14,7 @@
 
 | 仓库 | 内容 | 对应面试方向 |
 |------|------|-------------|
-| [ai-infra-notes](https://github.com/hzchenxiaobin/ai-infra-notes) | AI Infra 八股知识：12 个技术专题（cpp / cuda / cute / cutlass / deepgemm / moe / pytorch / shengteng / transformer / triton / vllm / interview），含面经 Q&A、8 周学习计划、ncu/nsys profiling 实战记录 | knowledge / cuda |
+| [ai-infra-notes](https://github.com/hzchenxiaobin/ai-infra-notes) | AI Infra 八股知识：12 个技术专题（cpp / cuda / cute / cutlass / deepgemm / moe / pytorch / shengteng / transformer / triton / vllm / interview），含面经 Q&A、8 周学习计划、ncu/nsys profiling 实战记录 | knowledge |
 | [leetcode](https://github.com/hzchenxiaobin/leetcode) | LeetCode 算法题解（100+ 题，按题号分段组织），每题含题面、思路、代码、复杂度、**面试要点 Q&A** | leetcode |
 | [leetgpu](https://github.com/hzchenxiaobin/leetgpu) | LeetGPU CUDA 编程题解（easy / medium / hard 分级），每题含 GPU 设计、kernel 实现、ncu 性能分析、算术强度分析 | cuda |
 
@@ -295,7 +295,7 @@ interface InterviewContext {
   - `followUps` ← **§6"面试要点"章节的每个编号问题**（该章节本身就是现成的追问列表）
   - `keyPoints` ← §6 各问题答案 + §4 复杂度分析表
 
-**② leetgpu 仓库 → category=cuda**
+**② leetgpu 仓库 → category=cuda（cuda 分类只保留 leetgpu 编程题，其他 CUDA 八股/概念题归 knowledge）**
 
 - 目录约定：`{easy|medium|hard}/{题号}_{题名}/leetgpu-*-solution.md`，一题一目录，难度即目录名；
 - 字段映射：
@@ -305,7 +305,7 @@ interface InterviewContext {
   - `followUps` ← §5 性能分析/优化方向中的要点转化为追问（如"如何用 ncu 确认该 kernel 是 memory-bound？"）
   - `keyPoints` ← §6 复杂度分析表（算术强度、瓶颈类型）+ ncu 指标表
 
-**③ ai-infra-notes 仓库 → category=knowledge / cuda**
+**③ ai-infra-notes 仓库 → category=knowledge**
 
 - 目录约定：`aiinfra/topics/{cpp, cuda, cute, cutlass, deepgemm, interview, moe, pytorch, shengteng, transformer, triton, vllm}/` 共 12 个专题；
 - `aiinfra/topics/interview/notes/*.md`（面经、国内外面试 Q&A）→ 每条 Q&A 直接解析为一题（问题→title/content，答案→keyPoints）；
@@ -340,8 +340,7 @@ interface InterviewContext {
 系统提供一键播种：三大方向各 3–5 道高质量内置题（含完整 followUps 和 keyPoints），保证首次使用即可面试，例如：
 
 - Leetcode：两数之和、最大子数组和（Kadane）、LRU Cache、二叉树层序遍历
-- CUDA：Shared Memory bank conflict 排查、Grid-Stride Loop、online softmax（FlashAttention 前置）、内存合并访问、ncu roofline 分析
-- 专业知识：C++ 八股（指针与引用/别名分析、四种类型转换、模板与实例化、string 子串与时间处理）、项目经历（STAR 讲一个性能优化项目，追问：瓶颈定位、量化收益、方案权衡、复盘）
+- 专业知识：CUDA 八股（Shared Memory bank conflict 排查、Grid-Stride Loop、online softmax、内存合并访问、ncu roofline 分析）、C++ 八股（指针与引用/别名分析、四种类型转换、模板与实例化、string 子串与时间处理）、项目经历（STAR 讲一个性能优化项目，追问：瓶颈定位、量化收益、方案权衡、复盘）
 
 ---
 

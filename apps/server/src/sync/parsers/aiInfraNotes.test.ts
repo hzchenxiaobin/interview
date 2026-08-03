@@ -70,7 +70,7 @@ describe("ai-infra-notes parser", () => {
       (x) => x.sourceKey === "ai-infra-notes:aiinfra/daily/week1/day1/README.md#0",
     )!;
 
-    expect(q.category).toBe("cuda");
+    expect(q.category).toBe("knowledge");
     expect(q.title).toBe("week1/day1 GPU 执行模型基础");
     expect(q.tags).toBe("daily,week1");
     // content 为面试要点节之前的正文，不含面试要点问题
