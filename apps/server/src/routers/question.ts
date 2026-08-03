@@ -1,7 +1,7 @@
 import { and, desc, eq, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { questionInputSchema, questionListFilterSchema } from "@interview/contracts";
+import { CATEGORIES, questionInputSchema, questionListFilterSchema } from "@interview/contracts";
 import { db } from "../db/client.js";
 import { questions } from "../db/schema.js";
 import { authedProcedure, router } from "../trpc.js";
@@ -34,7 +34,7 @@ export const questionRouter = router({
       .from(questions)
       .where(and(eq(questions.userId, ctx.userId), eq(questions.stale, 0)))
       .groupBy(questions.category);
-    const byCategory: Record<string, number> = { leetcode: 0, cuda: 0, cpp: 0, project: 0 };
+    const byCategory: Record<string, number> = Object.fromEntries(CATEGORIES.map((c) => [c, 0]));
     for (const r of rows) byCategory[r.category] = Number(r.count);
     return { byCategory, total: Object.values(byCategory).reduce((a, b) => a + b, 0) };
   }),

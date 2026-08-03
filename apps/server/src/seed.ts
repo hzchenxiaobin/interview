@@ -152,9 +152,9 @@ export const SEED_QUESTIONS: QuestionInput[] = [
       "sm__ 高→compute-bound，dram__ 高→memory-bound；occupancy 低但访存已打满时合理（如大 tile）；memory-bound 先查合并访问→再减访存量（tiling/融合）；结合多 section 交叉验证，必要时看 source counter 定位到行。",
     source: "profiling 实战记录",
   },
-  // ---------------------------------------------------------------- C++
+  // ------------------------------------------------------- 专业知识（C++）
   {
-    category: "cpp",
+    category: "knowledge",
     title: "指针与引用、别名分析",
     content: "讲解 C++ 中指针与引用的本质区别，以及什么是别名（aliasing）、它对优化的影响。",
     difficulty: "easy",
@@ -170,7 +170,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "C++ 课程",
   },
   {
-    category: "cpp",
+    category: "knowledge",
     title: "四种类型转换运算符",
     content: "static_cast / dynamic_cast / const_cast / reinterpret_cast 各自的作用、开销与适用场景。",
     difficulty: "easy",
@@ -186,7 +186,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "C++ 课程",
   },
   {
-    category: "cpp",
+    category: "knowledge",
     title: "模板与实例化",
     content: "函数模板/类模板的实例化过程、两阶段查找（two-phase lookup）、SFINAE 的基本思想。",
     difficulty: "medium",
@@ -202,7 +202,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "C++ 课程",
   },
   {
-    category: "cpp",
+    category: "knowledge",
     title: "string 子串查找与时间复杂度意识",
     content:
       "实现/分析子串查找：std::string::find 在做什么？暴力、KMP、Boyer-Moore 的复杂度与工程取舍。",
@@ -218,9 +218,9 @@ export const SEED_QUESTIONS: QuestionInput[] = [
       "next[i]=前缀表（最长相等前后缀），失配时不回退主串指针 O(n+m)；标准库多用 memchr+两段比较等常数优化，KMP 常数大且需额外空间；BM 最好 O(n/m) 跳跃；短模式可用 SIMD/memchr 加速首字符过滤。",
     source: "C++ 课程",
   },
-  // ---------------------------------------------------------------- 项目
+  // ------------------------------------------------------- 专业知识（项目）
   {
-    category: "project",
+    category: "knowledge",
     title: "STAR 讲一个性能优化项目",
     content:
       "请用 STAR 框架完整讲述一个你主导的性能优化项目（如 CUDA kernel 优化）：背景、目标、行动、量化结果。",
@@ -237,7 +237,7 @@ export const SEED_QUESTIONS: QuestionInput[] = [
     source: "面经 · 项目题",
   },
   {
-    category: "project",
+    category: "knowledge",
     title: "讲一次 profiling 工具链实践（ncu/nsys）",
     content:
       "介绍一次你用 ncu 或 nsys 定位并解决性能问题的经历：问题现象、分析路径、结论与验证。",

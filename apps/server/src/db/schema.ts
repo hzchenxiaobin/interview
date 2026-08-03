@@ -19,7 +19,7 @@ export const users = mysqlTable("users", {
 export const questions = mysqlTable("questions", {
   id: serial("id").primaryKey(),
   userId: bigint("user_id", { mode: "number" }).notNull(),
-  category: mysqlEnum("category", ["leetcode", "cuda", "cpp", "project"]).notNull(),
+  category: mysqlEnum("category", ["leetcode", "cuda", "knowledge"]).notNull(),
   title: varchar("title", { length: 500 }).notNull(),
   content: text("content").notNull(),
   difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),

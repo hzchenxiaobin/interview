@@ -1,0 +1,6 @@
+# 本机 3306 预留给 astock 项目，本项目 MySQL 宿主端口改为 3307（容器内仍为 3306）
+# !override 替换（而非追加）基础文件中的 ports 映射
+services:
+  mysql:
+    ports: !override
+      - "3307:3306"

@@ -21,15 +21,13 @@ export interface FetchRepoResult {
  * 不用 api.github.com（未认证限流 60 次/小时），commitSha 走 `git ls-remote`。
  */
 export async function fetchRepoFiles(owner: string, repo: string): Promise<FetchRepoResult> {
-  const [commitSha, tarball] = await Promise.all([
-    fetchCommitSha(owner, repo),
-    downloadTarball(owner, repo),
-  ]);
-
   const workDir = await mkdtemp(path.join(tmpdir(), `repo-sync-${repo}-`));
   try {
     const tarPath = path.join(workDir, "repo.tar.gz");
-    await writeFile(tarPath, tarball);
+    const [commitSha] = await Promise.all([
+      fetchCommitSha(owner, repo),
+      downloadTarball(owner, repo, tarPath),
+    ]);
     await execFileAsync("tar", ["-xzf", tarPath, "-C", workDir]);
 
     // 顶层目录名形如 `{repo}-main`（codeload 分支 tarball 不带 sha）
@@ -64,13 +62,26 @@ async function fetchCommitSha(owner: string, repo: string): Promise<string> {
   }
 }
 
-async function downloadTarball(owner: string, repo: string): Promise<Buffer> {
+/**
+ * 下载 tarball 到 destPath。优先用 curl：实测 Node fetch（undici）从 codeload 拉
+ * 大仓库（ai-infra-notes ~58MB）body 会永久停滞，curl 正常（README §13.5）。
+ * curl 不可用/失败时回退 fetch（小仓库没问题）。
+ */
+async function downloadTarball(owner: string, repo: string, destPath: string): Promise<void> {
   const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/refs/heads/main`;
-  const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) {
-    throw new Error(`下载仓库 tarball 失败：${url} → HTTP ${res.status}`);
+  try {
+    await execFileAsync("curl", ["-fsSL", "--max-time", "600", "-o", destPath, url]);
+    return;
+  } catch (err) {
+    const isMissing = (err as NodeJS.ErrnoException).code === "ENOENT";
+    if (isMissing) {
+      const res = await fetch(url, { redirect: "follow" });
+      if (!res.ok) throw new Error(`下载仓库 tarball 失败：${url} → HTTP ${res.status}`);
+      await writeFile(destPath, Buffer.from(await res.arrayBuffer()));
+      return;
+    }
+    throw new Error(`下载仓库 tarball 失败：${url} → ${(err as Error).message}`);
   }
-  return Buffer.from(await res.arrayBuffer());
 }
 
 async function collectMarkdown(dir: string, prefix: string, out: RepoFile[]): Promise<void> {

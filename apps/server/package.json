@@ -15,7 +15,9 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "bank:generate": "tsx scripts/generate-aiinfra-bank.ts",
+    "bank:import": "tsx scripts/import-aiinfra-bank.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

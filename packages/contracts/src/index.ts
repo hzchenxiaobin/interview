@@ -4,15 +4,14 @@ import { z } from "zod";
 // 枚举与常量（README §4.2）
 // ---------------------------------------------------------------------------
 
-export const CATEGORIES = ["leetcode", "cuda", "cpp", "project"] as const;
+export const CATEGORIES = ["leetcode", "cuda", "knowledge"] as const;
 export type Category = (typeof CATEGORIES)[number];
 export const categorySchema = z.enum(CATEGORIES);
 
 export const CATEGORY_LABELS: Record<Category, string> = {
-  leetcode: "算法",
+  leetcode: "Leetcode",
   cuda: "CUDA",
-  cpp: "C++",
-  project: "项目",
+  knowledge: "专业知识",
 };
 
 export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
@@ -136,8 +135,7 @@ export interface GroupedTranscript {
 export const CATEGORY_DIMENSIONS: Record<Category, string[]> = {
   leetcode: ["正确性", "复杂度分析", "边界处理", "表达清晰度"],
   cuda: ["概念正确性", "性能意识", "工具链实践", "表达清晰度"],
-  cpp: ["准确性", "深度", "工程权衡", "表达清晰度"],
-  project: ["情境(S)", "任务(T)", "行动(A)", "结果(R)"],
+  knowledge: ["准确性", "深度", "工程权衡", "表达清晰度"],
 };
 
 export interface QuestionEvaluation {

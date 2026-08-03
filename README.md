@@ -14,7 +14,7 @@
 
 | 仓库 | 内容 | 对应面试方向 |
 |------|------|-------------|
-| [ai-infra-notes](https://github.com/hzchenxiaobin/ai-infra-notes) | AI Infra 八股知识：12 个技术专题（cpp / cuda / cute / cutlass / deepgemm / moe / pytorch / shengteng / transformer / triton / vllm / interview），含面经 Q&A、8 周学习计划、ncu/nsys profiling 实战记录 | cpp / project |
+| [ai-infra-notes](https://github.com/hzchenxiaobin/ai-infra-notes) | AI Infra 八股知识：12 个技术专题（cpp / cuda / cute / cutlass / deepgemm / moe / pytorch / shengteng / transformer / triton / vllm / interview），含面经 Q&A、8 周学习计划、ncu/nsys profiling 实战记录 | knowledge / cuda |
 | [leetcode](https://github.com/hzchenxiaobin/leetcode) | LeetCode 算法题解（100+ 题，按题号分段组织），每题含题面、思路、代码、复杂度、**面试要点 Q&A** | leetcode |
 | [leetgpu](https://github.com/hzchenxiaobin/leetgpu) | LeetGPU CUDA 编程题解（easy / medium / hard 分级），每题含 GPU 设计、kernel 实现、ncu 性能分析、算术强度分析 | cuda |
 
@@ -52,7 +52,7 @@
 | # | 场景 | 验收标准 |
 |---|------|---------|
 | S1 | 导入知识 | 用户一键同步 GitHub 仓库（ai-infra-notes / leetcode / leetgpu），系统解析为结构化题目进入题库；也可粘贴 JSON 补充 |
-| S2 | 管理题库 | 按方向（算法/CUDA/C++/项目）、难度、标签筛选、增删改题目 |
+| S2 | 管理题库 | 按方向（Leetcode/CUDA/专业知识）、难度、标签筛选、增删改题目 |
 | S3 | 发起面试 | 选择方向组合 + 题量（如 CUDA×2 + 算法×1），系统抽题开场 |
 | S4 | 作答与被追问 | 聊天式作答；面试官每次只追问 1 个问题，循序渐进，3–5 个追问后换题 |
 | S5 | 获得报告 | 结束面试后生成 Markdown 报告：逐题维度评分 + 综合等级 A/B/C/D + 改进建议 |
@@ -126,7 +126,7 @@ sessions n───n questions       （由 sessions.questionIds 快照记录）
 |------|------|------|
 | id | serial PK | |
 | userId | bigint FK → users | 归属用户 |
-| category | enum(leetcode, cuda, cpp, project) | 四大方向 |
+| category | enum(leetcode, cuda, knowledge) | 三大方向（C++/项目已合并为专业知识） |
 | title | varchar(500) | 题目标题，如"最大子数组和（Kadane）" |
 | content | text | 题面/背景（LeetCode 描述、课程知识点） |
 | difficulty | enum(easy, medium, hard) | |
@@ -305,12 +305,12 @@ interface InterviewContext {
   - `followUps` ← §5 性能分析/优化方向中的要点转化为追问（如"如何用 ncu 确认该 kernel 是 memory-bound？"）
   - `keyPoints` ← §6 复杂度分析表（算术强度、瓶颈类型）+ ncu 指标表
 
-**③ ai-infra-notes 仓库 → category=cpp / project**
+**③ ai-infra-notes 仓库 → category=knowledge / cuda**
 
 - 目录约定：`aiinfra/topics/{cpp, cuda, cute, cutlass, deepgemm, interview, moe, pytorch, shengteng, transformer, triton, vllm}/` 共 12 个专题；
 - `aiinfra/topics/interview/notes/*.md`（面经、国内外面试 Q&A）→ 每条 Q&A 直接解析为一题（问题→title/content，答案→keyPoints）；
 - 其余专题文档按二级标题切分为知识点题目，`tags` ← 专题名；
-- `profiling/week1~3/` 的 ncu/nsys 实战记录 → category=project 的 STAR 素材题（情境=性能问题，行动=分析过程，结果=优化收益）。
+- `profiling/week1~3/` 的 ncu/nsys 实战记录 → category=knowledge 的 STAR 素材题（情境=性能问题，行动=分析过程，结果=优化收益）。
 
 **同步机制设计**：
 
@@ -337,12 +337,11 @@ interface InterviewContext {
 
 ### 7.5 种子题库
 
-系统提供一键播种：四大方向各 3–5 道高质量内置题（含完整 followUps 和 keyPoints），保证首次使用即可面试，例如：
+系统提供一键播种：三大方向各 3–5 道高质量内置题（含完整 followUps 和 keyPoints），保证首次使用即可面试，例如：
 
-- 算法：两数之和、最大子数组和（Kadane）、LRU Cache、二叉树层序遍历
+- Leetcode：两数之和、最大子数组和（Kadane）、LRU Cache、二叉树层序遍历
 - CUDA：Shared Memory bank conflict 排查、Grid-Stride Loop、online softmax（FlashAttention 前置）、内存合并访问、ncu roofline 分析
-- C++：指针与引用/别名分析、四种类型转换、模板与实例化、string 子串与时间处理
-- 项目：STAR 讲一个性能优化项目（追问：瓶颈定位、量化收益、方案权衡、复盘整）
+- 专业知识：C++ 八股（指针与引用/别名分析、四种类型转换、模板与实例化、string 子串与时间处理）、项目经历（STAR 讲一个性能优化项目，追问：瓶颈定位、量化收益、方案权衡、复盘）
 
 ---
 
@@ -352,10 +351,9 @@ interface InterviewContext {
 
 | 方向 | 维度（各 A/B/C/D） |
 |------|------------------|
-| LeetCode 算法 | 正确性 · 复杂度分析 · 边界处理 · 表达清晰度 |
+| Leetcode | 正确性 · 复杂度分析 · 边界处理 · 表达清晰度 |
 | CUDA/GPU | 概念正确性 · 性能意识（访存/占用率/并行度）· 工具链实践（nsys/ncu）· 表达清晰度 |
-| C++ 八股 | 准确性 · 深度（底层机制）· 工程权衡 · 表达清晰度 |
-| 项目经历 | STAR 四要素完整性（S/T/A/R 逐项诊断）+ 量化结果 |
+| 专业知识 | 准确性 · 深度（底层机制）· 工程权衡 · 表达清晰度；项目经历题按 STAR 四要素（S/T/A/R）诊断 |
 
 ### 8.2 综合等级
 
@@ -547,4 +545,5 @@ pnpm dev                      # server :3001 + web :5173（/trpc 已配代理）
 - **leetcode 解析白名单（两层）**（2026-08-03，leetcode.ts）：① 仓库根目录 `hot-interview.md` 的「站内题解」链接 → 270 道高频题；② 服务端本地 `apps/server/src/sync/parsers/leetcode-hot150.txt` → 150 道最高频题（Hot 100 全 114 道 + 36 道公司高频/模板补充题，剔除同类简单题）。实际白名单为两层交集，任一缺失时只用另一层，都缺失回退全量。历史已入库的清单外题目需手动标记 stale 清理（已执行：96 + 120 道同步题及 4 道重复种子题标记 `[已失效]`）。注意 `localHotWhitelist` 的文件读取异常会被静默吞掉（返回 null 不过滤），曾因漏导入 `fileURLToPath` 导致白名单失效、同步复活 120 题——改动后务必跑「清单外题解被过滤」单测确认。
 - **在线评测（V3 判题提前落地，2026-08-03）**：`/judge/:id` 页面 + `judgeRouter`（getProblem/run），题库 leetcode 题卡片有「在线评测」入口。要点：① LeetCode 不公开完整测试集，评测用例为题面示例（从 questions.content 的 ```text 块解析 输入/输出）；② 方法签名/参考代码不在 DB，运行时从本地仓库读取（`LEETCODE_REPO_DIR`，默认面试仓库同级 `leetcode/`）；③ 支持 C++（g++ 编译，内置 mini-JSON 驱动）与 Python，参数类型限于标量/string/一二维 vector，链表/树（ListNode/TreeNode）题明确报「暂不支持」；④ 输出比对 = JSON 深比较（数值容差 1e-5）+ 二维数组无序兜底；⑤ 用户代码在本机直接执行（个人工具定位），仅有超时约束（编译 30s/运行 8s），无容器隔离，不要部署成多用户服务。
 - **leetgpu 题号白名单**（2026-08-03，leetgpu.ts）：本地 `apps/server/src/sync/parsers/leetgpu-hot23.txt`（每行一个题号）按目录题号过滤，清单 = ai-infra-notes `topics/cuda/README.md` 面经高频（#4/5/6/40/50/74/105）+ 中频（#2/3/12/13/16/17/18/22/29/30/53/57/60/67/70/80）共 23 题；文件缺失不过滤。低频 80 题已一次性标记 `[已失效]`。ai-infra-notes 的 CUDA 八股知识点（357 道）不在此分类范围内，未裁剪。
+- **本机部署（2026-08-03）**：① 宿主 3306 被 astock 项目占用，`docker-compose.override.yml` 用 `ports: !override` 把 MySQL 映射到 3307（compose 对 ports 默认追加而非替换），`vitest.config.ts` 的测试库地址同步改为 3307；② 本机无 pnpm/corepack，`npm i -g pnpm@latest`（11.x）安装；③ cannbot CLI（1.1.2）因旧版 `opencode.db` 的 `__drizzle_migrations` 缺 `name`/`applied_at` 列导致所有命令报 `no such column: name`——该库无会话数据，备份为 `opencode.db.bak-*` 后删除重建即可；④ CANNBot vkey 通过 `cannbot connect`（交互式输入 vk-...）换取 access JWT，存于 `~/.local/share/opencode/auth.json` 的 `cannbot-cli`，`.env` 据此配置双头认证，glm-5.2 端到端实测通过。
 - **daily 周计划入库 + 考察范围 scope**（2026-08-03）：aiInfraNotes 解析器新增 `aiinfra/daily/weekN/dayM/README.md`（每天一题，category=cuda，tags=`daily,weekN`；content=面试要点节之前正文，「面试要点」节 `N. **Q**`+<details> 答案 → followUps/keyPoints），首次同步导入 56 题（8 周 × 7 天）。`interview.start` 新增可选 `scope`（sourceKey 前缀匹配，限 `ai-infra-notes:` 开头），设置时忽略 categories；`question.scopes` 返回可选的周/专题及题数；Dashboard「开始面试」增加考察范围下拉（按方向 / 按周 / 按专题）。session.categories 在 scope 模式下存抽中题的实际方向。

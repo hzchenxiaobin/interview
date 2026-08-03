@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
-import { MAX_FOLLOW_UPS, type InterviewState } from "@interview/contracts";
+import { CATEGORY_LABELS, MAX_FOLLOW_UPS, type InterviewState } from "@interview/contracts";
 import { queryClient, trpc, type InterviewGetData } from "../lib/trpc";
-import { Button, Card, ErrorBox, Loading } from "../components/ui";
+import { Button, Card, DifficultyBadge, ErrorBox, Loading } from "../components/ui";
+import { Markdown } from "../components/Markdown";
 import { MessageBubble } from "../components/MessageBubble";
 
 type MessageItem = InterviewGetData["messages"][number];
@@ -89,19 +90,71 @@ function InterviewRoom({ sessionId }: { sessionId: number }) {
   const maxFollowUps = currentQ ? Math.min(currentQ.followUps.length, MAX_FOLLOW_UPS) : 0;
   const progressPct = status === "finished" ? 100 : Math.round((currentIndex / total) * 100);
 
-  const send = () => {
-    const content = input.trim();
+  // 算法题 / leetgpu 题：切换为左右分栏（左题面 + 对话，右代码编辑器）
+  const codeQ =
+    status === "active" &&
+    currentQ != null &&
+    (currentQ.category === "leetcode" || currentQ.category === "cuda")
+      ? currentQ
+      : null;
+
+  const sendContent = (raw: string) => {
+    const content = raw.trim();
     if (!content || reply.isPending || status !== "active") return;
     setInput("");
     setMessages((m) => [...(m ?? get.data!.messages), makeLocalMessage(sessionId, "candidate", content)]);
     reply.mutate({ sessionId, content });
   };
 
+  const send = () => sendContent(input);
+
   const confirmFinish = () => {
     if (window.confirm("确定结束本场面试并生成评估报告？生成可能需要数十秒。")) {
       finish.mutate({ sessionId });
     }
   };
+
+  const messageFlow = (
+    <div className="space-y-3">
+      {msgs.map((m) => (
+        <MessageBubble key={m.id} role={m.role} content={m.content} />
+      ))}
+      {reply.isPending && (
+        <div className="flex justify-start">
+          <div className="rounded-2xl rounded-bl-sm border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-400">
+            面试官正在输入…
+          </div>
+        </div>
+      )}
+      <div ref={bottomRef} />
+    </div>
+  );
+
+  const inputArea =
+    status === "finished" ? (
+      <Card className="py-6 text-center text-sm text-gray-500">
+        本场面试已结束。
+        <Link to={`/report/${sessionId}`} className="ml-1 text-blue-600 hover:underline">
+          查看评估报告 →
+        </Link>
+      </Card>
+    ) : (
+      <Card>
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          rows={3}
+          placeholder="输入你的回答，可粘贴代码。点击「提交」发送。"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm focus:border-blue-400 focus:outline-none"
+        />
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-xs text-gray-400">仅点击「提交」按钮发送，回车不发送</span>
+          <Button disabled={!input.trim() || reply.isPending} onClick={send}>
+            {reply.isPending ? "提交中…" : "提交"}
+          </Button>
+        </div>
+      </Card>
+    );
 
   return (
     <div className="space-y-4">
@@ -143,53 +196,76 @@ function InterviewRoom({ sessionId }: { sessionId: number }) {
         )}
       </Card>
 
-      {/* 消息流 */}
-      <div className="space-y-3">
-        {msgs.map((m) => (
-          <MessageBubble key={m.id} role={m.role} content={m.content} />
-        ))}
-        {reply.isPending && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl rounded-bl-sm border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-400">
-              面试官正在输入…
-            </div>
+      {/* 算法题 / leetgpu 题：左题面 + 对话，右代码编辑器 */}
+      {codeQ ? (
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="min-w-0 space-y-4">
+            {/* 题目描述 */}
+            <Card>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm font-semibold">{codeQ.title}</span>
+                <DifficultyBadge difficulty={codeQ.difficulty} />
+              </div>
+              <div className="max-h-[45vh] overflow-y-auto pr-1">
+                <Markdown
+                  text={codeQ.content}
+                  className="space-y-2 text-sm leading-relaxed text-gray-800"
+                />
+              </div>
+            </Card>
+            {messageFlow}
+            {inputArea}
           </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* 输入区 */}
-      {status === "finished" ? (
-        <Card className="py-6 text-center text-sm text-gray-500">
-          本场面试已结束。
-          <Link to={`/report/${sessionId}`} className="ml-1 text-blue-600 hover:underline">
-            查看评估报告 →
-          </Link>
-        </Card>
+          <div className="min-w-0">
+            {/* key=题 ID：换题时重置编辑器内容 */}
+            <CodeEditorCard
+              key={codeQ.id}
+              categoryLabel={CATEGORY_LABELS[codeQ.category]}
+              pending={reply.isPending}
+              onSubmit={sendContent}
+            />
+          </div>
+        </div>
       ) : (
-        <Card>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              // isComposing：中文输入法组词期间的 Enter 不触发发送
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={3}
-            placeholder="输入你的回答，可粘贴代码。Enter 发送，Shift+Enter 换行。"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm focus:border-blue-400 focus:outline-none"
-          />
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-xs text-gray-400">Enter 发送 · Shift+Enter 换行</span>
-            <Button disabled={!input.trim() || reply.isPending} onClick={send}>
-              {reply.isPending ? "发送中…" : "发送"}
-            </Button>
-          </div>
-        </Card>
+        <>
+          {messageFlow}
+          {inputArea}
+        </>
       )}
     </div>
+  );
+}
+
+/** 代码作答面板：右侧编辑器，提交后将代码作为考生消息发送 */ 
+function CodeEditorCard({
+  categoryLabel,
+  pending,
+  onSubmit,
+}: {
+  categoryLabel: string;
+  pending: boolean;
+  onSubmit: (code: string) => void;
+}) {
+  const [code, setCode] = useState("");
+  return (
+    <Card className="lg:sticky lg:top-6">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">代码作答</span>
+        <span className="text-xs text-gray-400">{categoryLabel} · 提交后发送给面试官</span>
+      </div>
+      <textarea
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        spellCheck={false}
+        placeholder="在这里编写你的代码…"
+        className="h-[55vh] w-full resize-y rounded-lg bg-gray-900 p-3 font-mono text-xs leading-relaxed text-gray-100 outline-none"
+      />
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-xs text-gray-400">思路讨论 / 追问回答请用左侧输入框</span>
+        <Button disabled={!code.trim() || pending} onClick={() => onSubmit(code)}>
+          {pending ? "发送中…" : "提交代码"}
+        </Button>
+      </div>
+    </Card>
   );
 }

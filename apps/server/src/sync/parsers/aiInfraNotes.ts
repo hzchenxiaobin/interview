@@ -1,19 +1,19 @@
 import type { Category, ParsedQuestion, RepoFile } from "@interview/contracts";
 import { blankCodeFences, splitSections, type ParseOutput } from "./utils.js";
 
-/** 专题 → category 映射（cuda 系归 cuda，其余归 cpp） */
+/** 专题 → category 映射（cuda 系归 cuda，其余归 knowledge） */
 const TOPIC_CATEGORY: Record<string, Category> = {
-  cpp: "cpp",
+  cpp: "knowledge",
   cuda: "cuda",
   cute: "cuda",
   cutlass: "cuda",
   deepgemm: "cuda",
   triton: "cuda",
-  moe: "cpp",
-  pytorch: "cpp",
-  shengteng: "cpp",
-  transformer: "cpp",
-  vllm: "cpp",
+  moe: "knowledge",
+  pytorch: "knowledge",
+  shengteng: "knowledge",
+  transformer: "knowledge",
+  vllm: "knowledge",
 };
 
 /** 知识点条目正文下限（防碎片） */
@@ -22,7 +22,7 @@ const MIN_ENTRY_CHARS = 100;
 const SOURCE_PREFIX = "ai-infra-notes";
 
 /**
- * ai-infra-notes 仓库 → category=cpp / project / cuda
+ * ai-infra-notes 仓库 → category=knowledge / cuda
  * 解析范围：
  * - aiinfra/topics/interview/notes/us_interview_qa.md（`**Q：xxx**` + bullet 答案）
  * - aiinfra/topics/interview/notes/social_interview_qa.md（`### Q1 ✅ 项目题：xxx`）
@@ -105,7 +105,7 @@ function parseUsInterviewQa(path: string, md: string): ParsedQuestion[] {
       .join("\n")
       .trim();
     out.push({
-      category: "cpp",
+      category: "knowledge",
       title: cut.question,
       content: cut.question,
       difficulty: "medium",
@@ -134,7 +134,7 @@ function parseSocialInterviewQa(path: string, md: string): ParsedQuestion[] {
     // 答案正文：skeleton 已剥离代码块，这里用 section.body（基于 skeleton 切分，无代码）
     const answer = section.body.trim();
     out.push({
-      category: isProject ? "project" : "cpp",
+      category: "knowledge",
       title,
       content: title,
       difficulty: "medium",
@@ -238,7 +238,7 @@ function parseDailyReadme(
   };
 }
 
-/** profiling/weekN/dayM/README.md → category=project 的 STAR 素材题 */
+/** profiling/weekN/dayM/README.md → category=knowledge 的 STAR 素材题 */
 function parseProfilingReadme(
   path: string,
   md: string,
@@ -273,7 +273,7 @@ function parseProfilingReadme(
   }
 
   return {
-    category: "project",
+    category: "knowledge",
     title: `${week}/${day} ${topic}`,
     content: md.trim(),
     difficulty: "medium",

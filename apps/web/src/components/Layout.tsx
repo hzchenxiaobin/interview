@@ -10,7 +10,7 @@ export function Layout() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
           <span className="text-base font-bold">模拟面试</span>
           <nav className="flex gap-1">
             {NAV_ITEMS.map((item) => (
@@ -32,7 +32,7 @@ export function Layout() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className="mx-auto max-w-6xl px-4 py-6">
         <Outlet />
       </main>
     </div>

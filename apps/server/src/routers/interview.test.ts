@@ -75,9 +75,9 @@ run("interview 状态机（集成）", () => {
   }, 30_000);
 
   it("空方向题库报 PRECONDITION_FAILED", async () => {
-    // 先清空 project 方向制造空题库场景（beforeAll 的 seed 幂等，下次运行会自动补回）
-    const { items } = await caller.question.list({ category: "project", page: 1, pageSize: 100 });
+    // 先清空 knowledge 方向制造空题库场景（beforeAll 的 seed 幂等，下次运行会自动补回）
+    const { items } = await caller.question.list({ category: "knowledge", page: 1, pageSize: 100 });
     for (const q of items) await caller.question.remove({ id: q.id });
-    await expect(caller.interview.start({ categories: ["project"], count: 1 })).rejects.toThrow();
+    await expect(caller.interview.start({ categories: ["knowledge"], count: 1 })).rejects.toThrow();
   });
 });
