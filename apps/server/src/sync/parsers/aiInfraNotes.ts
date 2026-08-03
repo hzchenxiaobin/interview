@@ -58,6 +58,14 @@ export function parse(repoFiles: RepoFile[]): ParseOutput {
       continue;
     }
 
+    const dailyMatch = /^aiinfra\/daily\/(week\d+)\/(day\d+)\/README\.md$/.exec(file.path);
+    if (dailyMatch) {
+      const q = parseDailyReadme(file.path, file.content, dailyMatch[1], dailyMatch[2]);
+      if (q) questions.push(q);
+      else skipped.push(file.path);
+      continue;
+    }
+
     const profilingMatch = /^profiling\/(week[123])\/(day[^/]+)\/README\.md$/.exec(file.path);
     if (profilingMatch) {
       const q = parseProfilingReadme(file.path, file.content, profilingMatch[1], profilingMatch[2]);
@@ -141,8 +149,7 @@ function parseSocialInterviewQa(path: string, md: string): ParsedQuestion[] {
 }
 
 /** topics/{topic}/ 顶层 md：按 H3 切知识点条目，仅收正文 ≥100 字的 */
-function parseTopicFile(path: string, md: string, topic: string): ParsedQuestion[] {
-  const sections = splitSections(md, 3);
+function parseTopicFile(path: string, md: string, topic: string): ParsedQuestion[] {  const sections = splitSections(md, 3);
   const out: ParsedQuestion[] = [];
   for (const section of sections) {
     const title = section.heading.trim();
@@ -161,6 +168,74 @@ function parseTopicFile(path: string, md: string, topic: string): ParsedQuestion
     });
   }
   return out;
+}
+
+/** daily/weekN/dayM/README.md → 每天一题（category=cuda）
+ * content = 面试要点节之前的正文；followUps/keyPoints 取自「面试要点」节的
+ * `N. **问题**` + <details> 答案；无面试要点节时 followUps 为空。 */
+function parseDailyReadme(
+  path: string,
+  md: string,
+  week: string,
+  day: string,
+): ParsedQuestion | null {
+  const skeleton = blankCodeFences(md);
+  const dayHeading = /^##\s+Day\s*\d+\s*[：:]\s*(.+)$/m.exec(skeleton);
+  const topic = dayHeading?.[1]?.trim() || `${week} ${day}`;
+
+  const sections = splitSections(skeleton, 3);
+  const interview = sections.find((s) => /^面试要点/.test(s.name));
+
+  // content：面试要点节之前的正文（学习材料）
+  let content: string;
+  if (interview) {
+    const cut = skeleton.indexOf(`### ${interview.heading}`);
+    content = (cut > 0 ? skeleton.slice(0, cut) : skeleton).trim();
+  } else {
+    content = md.trim();
+  }
+  if (content.length < MIN_ENTRY_CHARS) return null;
+
+  // 面试要点：`N. **问题？**` + 后续 <details>…</details> 或普通文本答案
+  const followUps: string[] = [];
+  const keyPointsParts: string[] = [];
+  if (interview) {
+    const lines = interview.body.split("\n");
+    let current: { q: string; a: string[] } | null = null;
+    const flush = () => {
+      if (!current) return;
+      const answer = current.a
+        .join("\n")
+        .replace(/<\/?details>/g, "")
+        .replace(/<summary>.*?<\/summary>/g, "")
+        .trim();
+      followUps.push(current.q);
+      if (answer) keyPointsParts.push(`**${current.q}**\n${answer}`);
+      current = null;
+    };
+    for (const line of lines) {
+      const q = /^\d+\.\s+\*\*(.+?)\*\*\s*$/.exec(line.trim());
+      if (q) {
+        flush();
+        current = { q: q[1].trim(), a: [] };
+      } else if (current) {
+        current.a.push(line);
+      }
+    }
+    flush();
+  }
+
+  return {
+    category: "cuda",
+    title: `${week}/${day} ${topic}`,
+    content,
+    difficulty: "medium",
+    tags: `daily,${week}`,
+    followUps,
+    keyPoints: keyPointsParts.join("\n\n"),
+    source: `ai-infra-notes/daily/${week}`,
+    sourceKey: `${SOURCE_PREFIX}:${path}#0`,
+  };
 }
 
 /** profiling/weekN/dayM/README.md → category=project 的 STAR 素材题 */

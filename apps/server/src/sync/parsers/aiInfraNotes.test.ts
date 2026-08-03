@@ -63,4 +63,22 @@ describe("ai-infra-notes parser", () => {
     expect(q.content).toContain("ncu --metrics");
     expect(q.keyPoints).toContain("关键洞察");
   });
+
+  it("daily/weekN/dayM/README.md → 每天一题，面试要点转 followUps/keyPoints", async () => {
+    const { questions } = parse(await loadFixtures("ai-infra-notes"));
+    const q = questions.find(
+      (x) => x.sourceKey === "ai-infra-notes:aiinfra/daily/week1/day1/README.md#0",
+    )!;
+
+    expect(q.category).toBe("cuda");
+    expect(q.title).toBe("week1/day1 GPU 执行模型基础");
+    expect(q.tags).toBe("daily,week1");
+    // content 为面试要点节之前的正文，不含面试要点问题
+    expect(q.content).toContain("SIMT");
+    expect(q.content).not.toContain("Warp divergence 是什么？");
+    expect(q.followUps).toEqual(["什么是 SIMT？与 SIMD 的区别？", "Warp divergence 是什么？如何避免？"]);
+    // keyPoints 剥离 details/summary 标签
+    expect(q.keyPoints).toContain("32 个线程执行同一条指令");
+    expect(q.keyPoints).not.toContain("<details>");
+  });
 });

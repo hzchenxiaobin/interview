@@ -66,10 +66,20 @@ export type QuestionListFilter = z.infer<typeof questionListFilterSchema>;
 // 面试（README §5、§9）
 // ---------------------------------------------------------------------------
 
-export const startInterviewSchema = z.object({
-  categories: z.array(categorySchema).min(1),
-  count: z.number().int().min(1).max(MAX_QUESTIONS_PER_SESSION),
-});
+export const startInterviewSchema = z
+  .object({
+    categories: z.array(categorySchema).default([]),
+    count: z.number().int().min(1).max(MAX_QUESTIONS_PER_SESSION),
+    /**
+     * 考察范围（可选）：ai-infra-notes 的 sourceKey 前缀，
+     * 如 "ai-infra-notes:aiinfra/daily/week1/"（按周）或
+     * "ai-infra-notes:aiinfra/topics/cuda/"（按专题）。设置时忽略 categories。
+     */
+    scope: z.string().max(120).optional(),
+  })
+  .refine((v) => (v.scope ? true : v.categories.length > 0), {
+    message: "请选择方向或考察范围",
+  });
 export type StartInterviewInput = z.infer<typeof startInterviewSchema>;
 
 export interface InterviewState {

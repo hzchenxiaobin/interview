@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -107,16 +107,35 @@ function allocateCounts(pool: Map<Category, number>, count: number): Map<Categor
   return alloc;
 }
 
+/** scope 前缀 → 展示名（"ai-infra-notes:aiinfra/daily/week1/" → "Week 1"，topics/cuda → "cuda 专题"） */
+function scopeLabel(scope: string): string {
+  const week = /daily\/(week)(\d+)\//.exec(scope);
+  if (week) return `Week ${Number(week[2])}`;
+  const topic = /topics\/([^/]+)\//.exec(scope);
+  if (topic) return `${topic[1]} 专题`;
+  return scope;
+}
+
 export const interviewRouter = router({
   start: authedProcedure.input(startInterviewSchema).mutation(async ({ input, ctx }) => {
+    const scope = input.scope?.trim() || undefined;
+    if (scope && !scope.startsWith("ai-infra-notes:")) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "非法的考察范围" });
+    }
     const rows = await db
       .select()
       .from(questions)
-      .where(and(eq(questions.userId, ctx.userId), eq(questions.stale, 0), inArray(questions.category, input.categories)));
+      .where(
+        scope
+          ? and(eq(questions.userId, ctx.userId), eq(questions.stale, 0), like(questions.sourceKey, `${scope}%`))
+          : and(eq(questions.userId, ctx.userId), eq(questions.stale, 0), inArray(questions.category, input.categories)),
+      );
     if (rows.length === 0) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
-        message: "所选方向的题库为空，请先在题库页同步 GitHub 仓库或一键播种",
+        message: scope
+          ? "该考察范围的题库为空，请先在题库页同步 GitHub 仓库"
+          : "所选方向的题库为空，请先在题库页同步 GitHub 仓库或一键播种",
       });
     }
 
@@ -137,14 +156,17 @@ export const interviewRouter = router({
 
     const now = new Date();
     const mmdd = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    const catLabels = input.categories.map((c) => CATEGORY_LABELS[c]).join("+");
-    const title = `${catLabels}混合面试 ${mmdd}`;
+    const pickedCategories = [...new Set(picked.map((q) => q.category))];
+    const catLabels = scope
+      ? scopeLabel(scope)
+      : input.categories.map((c) => CATEGORY_LABELS[c]).join("+");
+    const title = scope ? `${catLabels}专项面试 ${mmdd}` : `${catLabels}混合面试 ${mmdd}`;
 
     const questionIds = picked.map((q) => q.id);
     const first = toQuestion(picked[0]);
     const firstQuestion = await getInterviewer().openingQuestion(first, "AI Infra 工程师");
     const opening =
-      `你好，我是今天的面试官。本场面试共 ${picked.length} 道题（${catLabels}方向），我会一次问一个问题，可能会有一些追问。\n\n` +
+      `你好，我是今天的面试官。本场面试共 ${picked.length} 道题（${catLabels}），我会一次问一个问题，可能会有一些追问。\n\n` +
       `我们开始第一题：\n\n${firstQuestion}`;
 
     const sessionId = await db.transaction(async (tx) => {
@@ -153,7 +175,7 @@ export const interviewRouter = router({
         .values({
           userId: ctx.userId,
           title,
-          categories: input.categories,
+          categories: scope ? pickedCategories : input.categories,
           questionIds,
           currentIndex: 0,
           followUpIndex: 0,

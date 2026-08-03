@@ -9,9 +9,11 @@ import { formatDateTime } from "../lib/format";
 export default function DashboardPage() {
   const navigate = useNavigate();
   const stats = useQuery(trpc.question.stats.queryOptions());
+  const scopes = useQuery(trpc.question.scopes.queryOptions());
   const sessions = useQuery(trpc.interview.list.queryOptions());
   const [selected, setSelected] = useState<Category[]>([]);
   const [count, setCount] = useState(5);
+  const [scope, setScope] = useState("");
 
   const start = useMutation(
     trpc.interview.start.mutationOptions({
@@ -26,6 +28,7 @@ export default function DashboardPage() {
     setSelected((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
 
   const byCategory = stats.data?.byCategory;
+  const canStart = scope !== "" || selected.length > 0;
 
   return (
     <div className="space-y-6">
@@ -56,7 +59,7 @@ export default function DashboardPage() {
       <Card>
         <h2 className="mb-3 text-lg font-semibold">开始面试</h2>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div className="flex flex-wrap gap-4">
+          <div className={`flex flex-wrap gap-4 ${scope ? "pointer-events-none opacity-40" : ""}`}>
             {CATEGORIES.map((c) => (
               <label key={c} className="flex cursor-pointer items-center gap-1.5 text-sm">
                 <input
@@ -70,6 +73,34 @@ export default function DashboardPage() {
               </label>
             ))}
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            考察范围
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1"
+            >
+              <option value="">按方向（上方勾选）</option>
+              {scopes.data && scopes.data.weeks.length > 0 && (
+                <optgroup label="按周（daily）">
+                  {scopes.data.weeks.map((w) => (
+                    <option key={w.scope} value={w.scope}>
+                      {w.name.replace(/^week(\d+)$/, "Week $1")}（{w.count} 题）
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {scopes.data && scopes.data.topics.length > 0 && (
+                <optgroup label="按专题（topics）">
+                  {scopes.data.topics.map((t) => (
+                    <option key={t.scope} value={t.scope}>
+                      {t.name}（{t.count} 题）
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
           <label className="flex items-center gap-2 text-sm">
             题量
             <select
@@ -85,14 +116,16 @@ export default function DashboardPage() {
             </select>
           </label>
           <Button
-            disabled={selected.length === 0 || start.isPending}
-            onClick={() => start.mutate({ categories: selected, count })}
+            disabled={!canStart || start.isPending}
+            onClick={() =>
+              start.mutate(scope ? { categories: [], count, scope } : { categories: selected, count })
+            }
           >
             {start.isPending ? "创建中…" : "开始面试"}
           </Button>
         </div>
-        {selected.length === 0 && (
-          <p className="mt-2 text-xs text-gray-400">请至少勾选一个方向</p>
+        {!canStart && (
+          <p className="mt-2 text-xs text-gray-400">请至少勾选一个方向，或选择一个考察范围</p>
         )}
         {start.error && (
           <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">

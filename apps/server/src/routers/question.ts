@@ -39,6 +39,33 @@ export const questionRouter = router({
     return { byCategory, total: Object.values(byCategory).reduce((a, b) => a + b, 0) };
   }),
 
+  /** ai-infra-notes 的考察范围（Dashboard 开始面试用）：按周（daily）与按专题（topics） */
+  scopes: authedProcedure.query(async ({ ctx }) => {
+    const rows = await db
+      .select({ sourceKey: questions.sourceKey })
+      .from(questions)
+      .where(
+        and(
+          eq(questions.userId, ctx.userId),
+          eq(questions.stale, 0),
+          like(questions.sourceKey, "ai-infra-notes:aiinfra/%"),
+        ),
+      );
+    const topics = new Map<string, number>();
+    const weeks = new Map<string, number>();
+    for (const { sourceKey } of rows) {
+      const m = /^ai-infra-notes:aiinfra\/(topics|daily)\/([^/]+)\//.exec(sourceKey);
+      if (!m) continue;
+      const map = m[1] === "topics" ? topics : weeks;
+      map.set(m[2], (map.get(m[2]) ?? 0) + 1);
+    }
+    const toList = (map: Map<string, number>, prefix: string) =>
+      [...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+        .map(([name, count]) => ({ name, count, scope: `ai-infra-notes:aiinfra/${prefix}/${name}/` }));
+    return { topics: toList(topics, "topics"), weeks: toList(weeks, "daily") };
+  }),
+
   create: authedProcedure.input(questionInputSchema).mutation(async ({ input, ctx }) => {
     const inserted = await db
       .insert(questions)
