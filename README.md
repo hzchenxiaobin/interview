@@ -549,3 +549,41 @@ pnpm dev                      # server :3001 + web :5173（/trpc 已配代理）
 - **规则引擎删除，系统纯 LLM 化**（2026-08-03）：`rule.ts`/`rule.test.ts` 已删除，`factory.getInterviewer()` 恒返回 `LlmInterviewer`，`isLlmEnabled()` 移除（reply 追问上限恒为 `MAX_FOLLOW_UPS`）。容错语义变化：开场/追问失败或疑似泄露要点时**重试一次后抛错**（上层 tRPC 报错呈现）；评估同样重试一次后抛错，LLM 漏题不再补规则评分（合成「未覆盖」条目）；未配置 `LLM_API_KEY` 直接报错（无降级模式）。集成测试改为 `vi.stubGlobal('fetch')` mock LLM 响应（vitest.config 的 `LLM_API_KEY` 填占位值即可，不能为空）。
 - **LLM 题库（ai-infra-notes）一次性生成 + 静态入库**（2026-08-03）：`scripts/generate-aiinfra-bank.ts`（`bank:generate`）把仓库 139 个范围内 md 逐文件喂给 glm-5.2 抽取结构化题目，断点续跑（`data/.bank-checkpoint.jsonl`），产物 `apps/server/data/question-bank.ai-infra.json`（614 题，应提交保留）；`scripts/import-aiinfra-bank.ts`（`bank:import`）按 `bank:ai-infra-notes:` sourceKey + contentHash 幂等入库，并把规则解析的 `ai-infra-notes:` 题目标记 `[已失效]`（替代语义）。产物按旧四分类抽取（cpp/cuda/project），导入时统一改写为 knowledge（对齐 d37c8b9：cuda 仅收 leetgpu 编程题）。首次导入 614 题（全部含 followUps/keyPoints）。注意：codeload 大仓库 tarball 用 Node fetch 拉取 body 会永久停滞，`github.ts` 已改 curl 优先。
 - **考察范围（按周/按专题）兼容 LLM 题库**（2026-08-03）：`question.scopes` 与 `interview.start` 的 scope 匹配原来只认 `ai-infra-notes:` 前缀，LLM 题库（`bank:ai-infra-notes:` 前缀）614 题全部漏掉、下拉为空。现两处同时匹配两种前缀（scope 值格式不变）。当前可选范围：8 周（week1–8，每周 30+ 题）+ 12 专题（cpp/cuda/cute/cutlass/deepgemm/interview/moe/pytorch/shengteng/transformer/triton/vllm）；profiling 的 47 题不在 scope 内（仍在 knowledge 大池）。
+
+---
+
+## 14. 部署硬件需求
+
+> 结论先行：**本系统无需 GPU**，LLM 走外部 API（CANNBot 网关 glm-5.2 / Moonshot / Kimi Code，见 §13.5），所有组件都是 CPU 负载，一台普通开发机或入门云主机即可部署。
+
+### 14.1 组件与资源消耗
+
+| 组件 | 部署方式 | CPU/内存需求 | 说明 |
+|------|---------|-------------|------|
+| MySQL 8 | Docker（docker-compose） | ~0.5–1 GB 内存 | 题库约 1.8k 条 + 面试流水，数据量极小，磁盘 < 1 GB |
+| 后端 server | Node.js ≥ 20 + pnpm 11（Hono + tRPC，:3001） | 1 核 / ~512 MB | LLM 调用走外网 HTTP，本地无推理负载 |
+| 前端 web | Vite 构建静态产物（开发模式 :5173） | 构建时 1–2 GB 内存峰值 | 生产用 `vite build` + 任意静态服务器即可 |
+| 在线评测 judge | 宿主机直接执行（g++ C++17 / python3） | 编译期瞬时 1 核 | 无容器隔离（§13.5），仅限个人单机使用，**不要部署成多用户服务** |
+| LLM | 外部 API（无需本地部署） | 无 | 仅消耗外网带宽；单场面试 5–10 次调用、数千 token |
+
+### 14.2 最低配置（个人使用）
+
+- **CPU**：2 核 x86_64（judge 编译 C++ 时略有等待，可接受）
+- **内存**：4 GB（MySQL ~1 GB + Node ~0.5 GB + 系统余量；若要跑 `vite build` 建议 4 GB 以上或加 swap）
+- **磁盘**：10 GB（Docker 镜像 ~0.6 GB + node_modules ~1 GB + 三个知识仓库 ~0.5 GB + MySQL 数据）
+- **GPU**：**不需要**
+- **网络**：可访问 GitHub（codeload.github.com，仓库同步用，见 §13.5）和 LLM API 端点（cannbot.hicann.cn 或 api.moonshot.cn 等）
+- **操作系统**：Linux（能跑 Docker / Docker Compose 即可）
+
+### 14.3 软件依赖清单
+
+- Docker + Docker Compose（MySQL 8 容器）
+- Node.js ≥ 20、pnpm 11（`npm i -g pnpm@latest`，corepack 不可用时按 §13.5 处理）
+- g++（支持 `-std=c++17`）与 python3（在线评测用，不用评测可缺省）
+- curl（仓库同步拉取 tarball 优先走 curl，§13.5）
+- 本地 leetcode 仓库副本（`LEETCODE_REPO_DIR`，在线评测读取参考代码用，默认取本项目同级 `leetcode/` 目录）
+
+### 14.4 可选升级项
+
+- **自托管 LLM**：若要把 `LLM_BASE_URL` 切到本地 vLLM（OpenAI 兼容端点），才需要 GPU——按模型规模定（如 7B INT4 约 6 GB 显存，32B 需 24 GB+ 或多卡），此时 LLM 机器可与本系统分离部署；
+- **判题沙箱化（V3 规划）**：若要开放多用户，judge 必须迁入容器/沙箱隔离执行，硬件需求按并发评测数另行评估。
